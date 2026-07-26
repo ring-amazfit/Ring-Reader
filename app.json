@@ -43,122 +43,111 @@
         }
       },
       "platforms": [
-        {
-          "name": "balance",
-          "deviceSource": 8519936,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "balance",
-          "deviceSource": 8519937,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "balance",
-          "deviceSource": 8519939,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "trex3",
-          "deviceSource": 8716544,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "trex3",
-          "deviceSource": 8716545,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "trex3",
-          "deviceSource": 8716547,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "cheetahpro",
-          "deviceSource": 8126720,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "cheetahpro",
-          "deviceSource": 8126721,
-          "st": "r",
-          "sr": "w480"
-        },
-        {
-          "name": "gtr4",
-          "deviceSource": 7930112,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "gtr4",
-          "deviceSource": 7930113,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "gtr4",
-          "deviceSource": 7864577,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 8913152,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 8913153,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 8913155,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 8913159,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 10092800,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 10092801,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 10092803,
-          "st": "r",
-          "sr": "w466"
-        },
-        {
-          "name": "active2",
-          "deviceSource": 10092807,
-          "st": "r",
-          "sr": "w466"
-        }
+        { "name": "balance", "deviceSource": 8519936, "st": "r", "sr": "w480" },
+        { "name": "balance", "deviceSource": 8519937, "st": "r", "sr": "w480" },
+        { "name": "balance", "deviceSource": 8519939, "st": "r", "sr": "w480" }
       ],
       "designWidth": 480
+    },
+    "trex3": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/calculator",
+            "page/bookshelf",
+            "page/reader"
+          ],
+          "defaultPage": "page/calculator"
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        { "name": "trex3", "deviceSource": 8716544, "st": "r", "sr": "w480" },
+        { "name": "trex3", "deviceSource": 8716545, "st": "r", "sr": "w480" },
+        { "name": "trex3", "deviceSource": 8716547, "st": "r", "sr": "w480" }
+      ],
+      "designWidth": 480
+    },
+    "cheetahpro": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/calculator",
+            "page/bookshelf",
+            "page/reader"
+          ],
+          "defaultPage": "page/calculator"
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        { "name": "cheetahpro", "deviceSource": 8126720, "st": "r", "sr": "w480" },
+        { "name": "cheetahpro", "deviceSource": 8126721, "st": "r", "sr": "w480" }
+      ],
+      "designWidth": 480
+    },
+    "gtr4": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/calculator",
+            "page/bookshelf",
+            "page/reader"
+          ],
+          "defaultPage": "page/calculator"
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        { "name": "gtr4", "deviceSource": 7930112, "st": "r", "sr": "w466" },
+        { "name": "gtr4", "deviceSource": 7930113, "st": "r", "sr": "w466" },
+        { "name": "gtr4", "deviceSource": 7864577, "st": "r", "sr": "w466" }
+      ],
+      "designWidth": 466
+    },
+    "active2": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/calculator",
+            "page/bookshelf",
+            "page/reader"
+          ],
+          "defaultPage": "page/calculator"
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        { "name": "active2", "deviceSource": 8913152, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 8913153, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 8913155, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 8913159, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 10092800, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 10092801, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 10092803, "st": "r", "sr": "w466" },
+        { "name": "active2", "deviceSource": 10092807, "st": "r", "sr": "w466" }
+      ],
+      "designWidth": 466
     }
   },
   "i18n": {
