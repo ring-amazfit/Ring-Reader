@@ -1,0 +1,68 @@
+msgid "settingAppName"
+msgstr "Ring Reader"
+
+msgid "settingAppSub"
+msgstr "Calculator disguise · Read on watch"
+
+msgid "settingBookTitle"
+msgstr "📕 Book title"
+
+msgid "settingBookPlaceholder"
+msgstr "e.g. Dune"
+
+msgid "settingBookHint"
+msgstr "Book name, required"
+
+msgid "settingUrlLabel"
+msgstr "🔗 TXT download URL"
+
+msgid "settingUrlPlaceholder"
+msgstr "https://.../book.txt"
+
+msgid "settingUrlHint"
+msgstr "Must be a direct download link, UTF-8 encoded"
+
+msgid "settingPasteBtn"
+msgstr "📋 Paste from clipboard"
+
+msgid "settingClipboardNotFound"
+msgstr "No direct link found in clipboard, please paste manually"
+
+msgid "settingUploadBtn"
+msgstr "🚀 Start upload to watch"
+
+msgid "settingErrNoTitleOrUrl"
+msgstr "Please enter both title and URL"
+
+msgid "settingErrUrlScheme"
+msgstr "URL must start with http:// or https://"
+
+msgid "settingTaskSubmitted"
+msgstr "Task submitted, waiting for phone service"
+
+msgid "settingProgressLabel"
+msgstr "Progress "
+
+msgid "settingClearBtn"
+msgstr "Clear status"
+
+msgid "settingTutorialTitle"
+msgstr "📖 Tutorial"
+
+msgid "settingTutorialStep"
+msgstr "① Title+URL → ② Upload → ③ Keep app foreground → ④ Stay on bookshelf on watch"
+
+msgid "settingTutorialUtf8"
+msgstr "• Only UTF-8 encoded .txt files are supported"
+
+msgid "settingTutorialWatch"
+msgstr "• On watch: Calculator → type 123456 → = → bookshelf waits for transfer"
+
+msgid "settingFooter"
+msgstr "Ring Reader · v3.0.1 · Graphite / Amber"
+
+msgid "settingWaiting"
+msgstr "Waiting to upload"
+
+msgid "settingFailed"
+msgstr "Failed"

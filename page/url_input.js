@@ -6,6 +6,7 @@
 
 import { createWidget, widget, align, event, prop } from '@zos/ui'
 import { push, pop } from '@zos/router'
+import { getText } from '@zos/i18n'
 
 var W = 480, H = 480
 var SAFE = { L: 78, R: 402, T: 65, B: 415 }
@@ -86,7 +87,7 @@ function build() {
   widgets.push(createWidget(widget.TEXT, {
     x: SAFE.L, y: SAFE.T,
     w: SAFE.R - SAFE.L, h: 28,
-    text: '输入下载链接',
+    text: getText('urlInputTitle'),
     text_size: 16, color: TEXT, alpha: 0,
     align_h: align.CENTER_H,
   }))
@@ -97,7 +98,7 @@ function build() {
   widgets.push(createWidget(widget.TEXT, {
     x: SAFE.L + 4, y: SAFE.T + 34,
     w: SAFE.R - SAFE.L - 8, h: 26,
-    text: urlView || '(空)',
+    text: urlView || getText('urlEmptyHint'),
     text_size: 13, color: urlView ? ACCENT : MUTED, alpha: 0,
     align_h: align.LEFT,
   }))
@@ -213,7 +214,7 @@ function build() {
   widgets.push(createWidget(widget.TEXT, {
     x: SAFE.L, y: SAFE.B - 18,
     w: SAFE.R - SAFE.L, h: 16,
-    text: '短按切换字符 · 输入5位以上后点OK',
+    text: getText('urlKeyHint'),
     text_size: 9, color: MUTED,
     align_h: align.CENTER_H,
   }))
@@ -266,13 +267,13 @@ function clearTimer() {
 function extractTitle(url) {
   try {
     var parts = url.split('/')
-    var file = parts[parts.length - 1] || '未知书籍'
+    var file = parts[parts.length - 1] || getText('urlUnknownBook')
     file = file.split('?')[0]
     file = file.split('#')[0]
     if (file.endsWith('.txt')) file = file.substring(0, file.length - 4)
     try { return decodeURIComponent(file) } catch (e) { return file }
   } catch (e) {
-    return '未知书籍'
+    return getText('urlUnknownBook')
   }
 }
 

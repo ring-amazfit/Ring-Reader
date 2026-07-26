@@ -22,6 +22,7 @@ import { localStorage } from '@zos/storage'
 import { setWakeUpRelaunch, setBrightness, getBrightness } from '@zos/display'
 import { Time, Battery } from '@zos/sensor'
 import { getDeviceInfo } from '@zos/device'
+import { getText } from '@zos/i18n'
 import {
   openAssetsSync, statAssetsSync,
   openSync, statSync,
@@ -64,29 +65,29 @@ var _readBufLen = 0
 var LIBRARY = [
   {
     id: 0,
-    title: "测试小说",
-    author: "作者A",
+    title: getText('libraryTestTitle'),
+    author: getText('libraryTestAuthor'),
     file: "raw/books/Test.txt",
   },
 ]
 
 var FONT_SIZES = (function () { var a = []; for (var s = 12; s <= 36; s++) a.push(s); return a })()  // 逐号可调
 var SPACINGS = [1.0, 1.18, 1.36, 1.58]
-var SPACING_LABELS = ['紧', '中', '松', '大']
+var SPACING_LABELS = ['spacingTight', 'spacingNormal', 'spacingLoose', 'spacingLarge']
 
 // 配色主题：bg 背景 / fg 正文 / sub 次要 / bar 进度 / barbg 进度底
 var THEMES = [
-  { name: '夜', bg: 0x0E0E0E, fg: 0xE8E8E8, sub: UI_SUB, bar: 0xD8924B, barbg: 0x2A2A2A },
-  { name: '护眼', bg: 0x12211A, fg: 0xCBE3CE, sub: 0x6E8F76, bar: 0x5AAE78, barbg: 0x24382C },
-  { name: '纸', bg: 0xE9E0CB, fg: 0x3A352A, sub: 0x8C8064, bar: 0xB5772E, barbg: 0xCFC3A6 },
-  { name: '黑', bg: 0x000000, fg: 0xC6C6C6, sub: 0x707070, bar: 0xC07A33, barbg: 0x1C1C1C },
-  { name: '暮', bg: 0x1A1020, fg: 0xD8C8E8, sub: 0x8878A0, bar: 0xA060D0, barbg: 0x2A1838 },
-  { name: '雾', bg: 0xF0F0F0, fg: 0x2A2A2A, sub: UI_SUB, bar: 0xD8924B, barbg: 0xD8D8D8 },
-  { name: '秋', bg: 0x1C1810, fg: 0xE0D0B0, sub: 0x9A8A6A, bar: 0xD4A040, barbg: 0x2C2418 },
-  { name: '冰', bg: 0x0C1420, fg: 0xFFFFFF, sub: 0x9A9A9A, bar: 0xD8924B, barbg: 0x182838 }
+  { nameKey: 'themeNight', bg: 0x0E0E0E, fg: 0xE8E8E8, sub: UI_SUB, bar: 0xD8924B, barbg: 0x2A2A2A },
+  { nameKey: 'themeEye', bg: 0x12211A, fg: 0xCBE3CE, sub: 0x6E8F76, bar: 0x5AAE78, barbg: 0x24382C },
+  { nameKey: 'themePaper', bg: 0xE9E0CB, fg: 0x3A352A, sub: 0x8C8064, bar: 0xB5772E, barbg: 0xCFC3A6 },
+  { nameKey: 'themeBlack', bg: 0x000000, fg: 0xC6C6C6, sub: 0x707070, bar: 0xC07A33, barbg: 0x1C1C1C },
+  { nameKey: 'themeDusk', bg: 0x1A1020, fg: 0xD8C8E8, sub: 0x8878A0, bar: 0xA060D0, barbg: 0x2A1838 },
+  { nameKey: 'themeFog', bg: 0xF0F0F0, fg: 0x2A2A2A, sub: UI_SUB, bar: 0xD8924B, barbg: 0xD8D8D8 },
+  { nameKey: 'themeAutumn', bg: 0x1C1810, fg: 0xE0D0B0, sub: 0x9A8A6A, bar: 0xD4A040, barbg: 0x2C2418 },
+  { nameKey: 'themeIce', bg: 0x0C1420, fg: 0xFFFFFF, sub: 0x9A9A9A, bar: 0xD8924B, barbg: 0x182838 }
 ]
 var AUTO_SECS = [0, 12, 7, 4]            // 自动翻页：关/慢/中/快
-var AUTO_LABELS = ['关', '慢', '中', '快']
+var AUTO_LABELS = ['autoOff', 'autoSlow', 'autoNormal', 'autoFast']
 
 var bookId = 0, book = null, isDownloaded = false
 var fontIdx = 8
@@ -137,7 +138,7 @@ function showLoading() {
   clearLoading()
   loadingWidgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 220 }))
   loadingWidgets.push(createWidget(widget.FILL_RECT, { x: 90, y: 184, w: W - 180, h: 86, radius: 18, color: UI_PANEL_SOFT }))
-  loadingWidgets.push(createWidget(widget.TEXT, { x: 70, y: 214, w: W - 140, h: 32, text: '正在加载…', text_size: 18, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  loadingWidgets.push(createWidget(widget.TEXT, { x: 70, y: 214, w: W - 140, h: 32, text: getText('readerLoading'), text_size: 18, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   // 琥珀脉冲：加载文字呼吸效果
   var pulseUp = true, pulseAlpha = 180
   var pulseTarget = loadingWidgets[loadingWidgets.length - 1]
@@ -268,7 +269,7 @@ function pageLimits(cfg) {
 
 // 渲染从 startOffset 开始的一页，返回 {lines,end,eof,layout}。按每行动态宽度排版，尽量铺满圆屏。
 function renderPage(startOffset, cfg) {
-  if (!source) return { text: '(读取失败)', start: 0, end: 0, eof: true }
+  if (!source) return { text: getText('readerReadFailed'), start: 0, end: 0, eof: true }
   var lim = pageLimits(cfg)
   var lines = [], parts = [], lineLen = 0
   var pos = startOffset
@@ -385,7 +386,7 @@ function battStr() {
     if (lastBatt >= 0 && b > lastBatt) charging = true
     else if (lastBatt >= 0 && b < lastBatt) charging = false
     lastBatt = b
-    return (charging ? '充' : '') + b + '%'
+    return (charging ? getText('readerBatteryCharging') : '') + b + '%'
   } catch (e) { return '' }
 }
 function topText() {
@@ -429,8 +430,8 @@ function currentReadSec() {
 }
 function fmtMin(sec) {
   var m = Math.floor(sec / 60)
-  if (m < 60) return m + '分'
-  return Math.floor(m / 60) + '时' + (m % 60) + '分'
+  if (m < 60) return m + getText('readerMinuteSuffix')
+  return Math.floor(m / 60) + getText('readerHourSuffix') + (m % 60) + getText('readerMinuteSuffix')
 }
 function estRemaining() {
   if (!source || source.size <= 0 || !curInfo || curInfo.eof) return ''
@@ -438,7 +439,7 @@ function estRemaining() {
   var remainBytes = Math.max(0, source.size - curInfo.end)
   var remain = Math.round(remainBytes / speedBytesPerSec)
   if (remain < 30) return ''
-  return '预计还需' + fmtMin(remain)
+  return getText('readerEstimateRemain') + fmtMin(remain)
 }
 function resetSpeedTracking() {
   speedBytesPerSec = 0
@@ -499,7 +500,7 @@ function startClock() {
     if (topPctWidget) topPctWidget.setProperty(prop.TEXT, topText())
     if (menu.active && menu.timerText) {
       var rm = estRemaining()
-      try { menu.timerText.setProperty(prop.TEXT, '本次 ' + fmtMin(currentReadSec() - baseReadSec) + ' · 累计 ' + fmtMin(currentReadSec()) + (rm ? ' · 剩 ' + rm : '')) } catch (e) {}
+      try { menu.timerText.setProperty(prop.TEXT, getText('readerSessionTime') + fmtMin(currentReadSec() - baseReadSec) + ' · ' + getText('readerTotalTime') + fmtMin(currentReadSec()) + (rm ? getText('readerRemain') + rm : '')) } catch (e) {}
     }
     applyBrightness()
     flushReadTime()
@@ -764,7 +765,7 @@ function scrollUp() {
 function toggleScroll() {
   scrollMode = !scrollMode
   _scrollStack = []           // 切回翻页模式后滚动栈失效
-  if (menu.scrollText) { try { menu.scrollText.setProperty(prop.TEXT, '滚动 ' + (scrollMode ? '开' : '关')) } catch (e) {} }
+  if (menu.scrollText) { try { menu.scrollText.setProperty(prop.TEXT, getText('readerScrollMode') + (scrollMode ? getText('readerScrollOn') : getText('readerScrollOff'))) } catch (e) {} }
   saveProgress()
 }
 function toggleFullscreen() {
@@ -774,7 +775,7 @@ function toggleFullscreen() {
   try { if (pageNumWidget) pageNumWidget.setProperty(prop.MORE, { alpha: alpha }) } catch (e) {}
   try { if (_progBgWidget) _progBgWidget.setProperty(prop.MORE, { alpha: alpha }) } catch (e) {}
   try { if (readProgressWidget) readProgressWidget.setProperty(prop.MORE, { alpha: alpha }) } catch (e) {}
-  toast(fullscreen ? '全屏模式' : '退出全屏')
+  toast(fullscreen ? getText('readerFullscreenOn') : getText('readerFullscreenOff'))
 }
 
 function relayout() {
@@ -815,7 +816,7 @@ function changeBright(delta) {
     if (brightVal < 0) brightVal = -1
   }
   applyBrightness()
-  if (menu.brightText) { try { menu.brightText.setProperty(prop.TEXT, brightVal < 0 ? '系统' : brightVal + '%') } catch (e) {} }
+  if (menu.brightText) { try { menu.brightText.setProperty(prop.TEXT, brightVal < 0 ? getText('readerBrightnessSystem') : brightVal + '%') } catch (e) {} }
   saveProgress()
 }
 
@@ -926,11 +927,11 @@ function bookmarksOf() {
 function saveBookmarks(list) { var all = loadBookmarks(); all[String(bookId)] = list; try { localStorage.setItem('bookmarks', JSON.stringify(all)) } catch (e) {} }
 function addBookmark() {
   var list = bookmarksOf()
-  for (var i = 0; i < list.length; i++) if (Math.abs(list[i].offset - curStart) < 4) { toast('本页已有书签'); return }
+  for (var i = 0; i < list.length; i++) if (Math.abs(list[i].offset - curStart) < 4) { toast(getText('readerBookmarkExists')); return }
   list.push({ offset: curStart, page: displayPage(), pct: percent(), ts: Date.now() })
   if (list.length > 50) list.shift()
   saveBookmarks(list)
-  toast('已加书签')
+  toast(getText('readerBookmarkAdded'))
 }
 
 var bm = { active: false, staticWidgets: [], rowWidgets: [], page: 0 }
@@ -963,7 +964,7 @@ function renderBookmarkPage() {
     var it = list[list.length - 1 - start - i]
     var y = startY + i * rowH
     bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: 80, y: y, w: 320, h: rowH - 6, radius: 10, color: UI_PANEL }))
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 94, y: y, w: 230, h: rowH - 6, text: '第' + it.page + '页 · ' + it.pct + '%', text_size: 14, color: UI_TEXT, align_v: align.CENTER_V }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 94, y: y, w: 230, h: rowH - 6, text: getText('readerPage') + it.page + ' · ' + it.pct + '%', text_size: 14, color: UI_TEXT, align_v: align.CENTER_V }))
     var jt = createWidget(widget.FILL_RECT, { x: 80, y: y, w: 264, h: rowH - 6, radius: 8, color: 0x000000, alpha: 0 })
     jt.addEventListener(event.CLICK_DOWN, (function (off) { return function () { closeBookmarks(); curStart = off; backStack = []; refreshDisplay(); saveProgress() } })(it.offset))
     bm.rowWidgets.push(jt)
@@ -977,10 +978,10 @@ function renderBookmarkPage() {
     bm.rowWidgets.push(dt)
   }
 
-  if (list.length === 0) bm.rowWidgets.push(createWidget(widget.TEXT, { x: 90, y: 170, w: 300, h: 24, text: '还没有书签', text_size: 14, color: UI_MUTED, align_h: align.CENTER_H }))
+  if (list.length === 0) bm.rowWidgets.push(createWidget(widget.TEXT, { x: 90, y: 170, w: 300, h: 24, text: getText('readerNoBookmarks'), text_size: 14, color: UI_MUTED, align_h: align.CENTER_H }))
 
   if (totalPages > 1) {
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 170, y: 344, w: 140, h: 20, text: (bm.page + 1) + '/' + totalPages + '  表冠翻页', text_size: 11, color: UI_MUTED, align_h: align.CENTER_H }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 170, y: 344, w: 140, h: 20, text: (bm.page + 1) + '/' + totalPages + '  ' + getText('readerCrownPaging'), text_size: 11, color: UI_MUTED, align_h: align.CENTER_H }))
   }
 }
 
@@ -995,16 +996,16 @@ function openBookmarks() {
   bm.staticWidgets.push(bg)
   bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 72, y: 32, w: 336, h: 376, radius: 20, color: MENU_PANEL }))
   try { bm.staticWidgets[1].setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
-  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 90, y: 44, w: 300, h: 24, text: '书签', text_size: 17, color: UI_ACCENT, align_h: align.CENTER_H }))
+  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 90, y: 44, w: 300, h: 24, text: getText('readerBookmarks'), text_size: 17, color: UI_ACCENT, align_h: align.CENTER_H }))
   // 加书签按钮
   bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 150, y: 72, w: 180, h: 40, radius: 10, color: MENU_BTN_TOGGLE }))
-  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 150, y: 70, w: 180, h: 40, text: '＋ 在此页加书签', text_size: 14, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 150, y: 70, w: 180, h: 40, text: getText('readerAddBookmark'), text_size: 14, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var addT = createWidget(widget.FILL_RECT, { x: 150, y: 70, w: 180, h: 40, radius: 10, color: 0x000000, alpha: 0 })
   addT.addEventListener(event.CLICK_DOWN, function () { addBookmark(); renderBookmarkPage() })
   bm.staticWidgets.push(addT)
   // 关闭按钮
   bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 170, y: 364, w: 140, h: 38, radius: 10, color: MENU_BTN }))
-  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 170, y: 364, w: 140, h: 38, text: '关闭', text_size: 14, color: UI_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 170, y: 364, w: 140, h: 38, text: getText('readerClose'), text_size: 14, color: UI_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var ct = createWidget(widget.FILL_RECT, { x: 170, y: 364, w: 140, h: 38, radius: 10, color: 0x000000, alpha: 0 })
   ct.addEventListener(event.CLICK_DOWN, function () { closeBookmarks() })
   bm.staticWidgets.push(ct)
@@ -1085,7 +1086,7 @@ function openMenu() {
   }))
   menu.timerText = mAdd(createWidget(widget.TEXT, {
     x: MPX, y: 60, w: MPW, h: 16,
-    text: '本次 ' + fmtMin(currentReadSec() - baseReadSec) + ' · 累计 ' + fmtMin(currentReadSec()),
+    text: getText('readerSessionTime') + fmtMin(currentReadSec() - baseReadSec) + ' · ' + getText('readerTotalTime') + fmtMin(currentReadSec()),
     text_size: 10, color: 0x8A8A8A, align_h: align.CENTER_H
   }))
   menu.remainText = mAdd(createWidget(widget.TEXT, {
@@ -1094,15 +1095,15 @@ function openMenu() {
   }))
 
   // 字号
-  mAdd(createWidget(widget.TEXT, { x: MPX + 36, y: 92, w: 56, h: 36, text: '字号', text_size: 14, color: MENU_SUB, align_v: align.CENTER_V }))
+  mAdd(createWidget(widget.TEXT, { x: MPX + 36, y: 92, w: 56, h: 36, text: getText('readerFont'), text_size: 14, color: MENU_SUB, align_v: align.CENTER_V }))
   menuBtn(MPX + 98, 92, 48, 36, 'A-', MENU_BTN, 0xFFFFFF, 17, function () { changeFont(-1) })
   menu.fontText = mAdd(createWidget(widget.TEXT, { x: MPX + 148, y: 92, w: 56, h: 36, text: cfgNow().label, text_size: 17, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   menuBtn(MPX + 206, 92, 48, 36, 'A+', MENU_BTN, 0xFFFFFF, 17, function () { changeFont(1) })
 
-  menu.spacingText = menuStepper(134, '行距', SPACING_LABELS[spacingIdx], function () { changeSpacing(-1) }, function () { changeSpacing(1) })
-  menu.brightText = menuStepper(176, '亮度', brightVal < 0 ? '系统' : brightVal + '%', function () { changeBright(-1) }, function () { changeBright(1) })
-  menu.themeText = menuStepper(218, '主题', theme().name, function () { changeTheme(-1) }, function () { changeTheme(1) })
-  menu.autoText = menuStepper(260, '自动', AUTO_LABELS[autoIdx], function () { changeAuto(-1) }, function () { changeAuto(1) })
+  menu.spacingText = menuStepper(134, getText('readerSpacing'), getText(SPACING_LABELS[spacingIdx]), function () { changeSpacing(-1) }, function () { changeSpacing(1) })
+  menu.brightText = menuStepper(176, getText('readerBrightness'), brightVal < 0 ? getText('readerBrightnessSystem') : brightVal + '%', function () { changeBright(-1) }, function () { changeBright(1) })
+  menu.themeText = menuStepper(218, getText('readerTheme'), getText(theme().nameKey), function () { changeTheme(-1) }, function () { changeTheme(1) })
+  menu.autoText = menuStepper(260, getText('readerAuto'), getText(AUTO_LABELS[autoIdx]), function () { changeAuto(-1) }, function () { changeAuto(1) })
 
   // 底部6按钮（2行3列）
   var btnW = 98, btnH = 38, btnGap = 8
@@ -1110,20 +1111,20 @@ function openMenu() {
   var btnX1 = MPX + 12, btnX2 = btnX1 + btnW + btnGap, btnX3 = btnX2 + btnW + btnGap
 
   // 第一行：书签 / 全屏 / 滚动
-  menuBtn(btnX1, btnY1, btnW, btnH, '书签', MENU_BTN_TOGGLE, MENU_BTN_FG, 15, function () { closeMenu(); openBookmarks() })
-  menuBtn(btnX2, btnY1, btnW, btnH, '全屏', MENU_BTN_TOGGLE, MENU_BTN_FG, 15, function () { toggleFullscreen() })
+  menuBtn(btnX1, btnY1, btnW, btnH, getText('readerBookmarks'), MENU_BTN_TOGGLE, MENU_BTN_FG, 15, function () { closeMenu(); openBookmarks() })
+  menuBtn(btnX2, btnY1, btnW, btnH, getText('readerFullscreen'), MENU_BTN_TOGGLE, MENU_BTN_FG, 15, function () { toggleFullscreen() })
   mAdd(createWidget(widget.FILL_RECT, { x: btnX3, y: btnY1, w: btnW, h: btnH, radius: 10, color: MENU_BTN_TOGGLE }))
-  menu.scrollText = mAdd(createWidget(widget.TEXT, { x: btnX3, y: btnY1, w: btnW, h: btnH, text: '滚动 ' + (scrollMode ? '开' : '关'), text_size: 14, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  menu.scrollText = mAdd(createWidget(widget.TEXT, { x: btnX3, y: btnY1, w: btnW, h: btnH, text: getText('readerScrollMode') + (scrollMode ? getText('readerScrollOn') : getText('readerScrollOff')), text_size: 14, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var scT = mAdd(createWidget(widget.FILL_RECT, { x: btnX3, y: btnY1, w: btnW, h: btnH, radius: 10, color: 0x000000, alpha: 0 }))
   scT.addEventListener(event.CLICK_DOWN, function () { toggleScroll() })
 
   // 第二行：跳页 / 常亮 / 关闭
-  menuBtn(btnX1, btnY2, btnW, btnH, '跳页', MENU_BTN, 0xEEEEEE, 15, function () { closeMenu(); openJumpPanel() })
+  menuBtn(btnX1, btnY2, btnW, btnH, getText('readerJump'), MENU_BTN, 0xEEEEEE, 15, function () { closeMenu(); openJumpPanel() })
   mAdd(createWidget(widget.FILL_RECT, { x: btnX2, y: btnY2, w: btnW, h: btnH, radius: 10, color: MENU_BTN }))
-  menu.awakeTxt = mAdd(createWidget(widget.TEXT, { x: btnX2, y: btnY2, w: btnW, h: btnH, text: keepAwake ? '常亮开' : '常亮关', text_size: 13, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  menu.awakeTxt = mAdd(createWidget(widget.TEXT, { x: btnX2, y: btnY2, w: btnW, h: btnH, text: keepAwake ? getText('readerKeepAwakeOn') : getText('readerKeepAwakeOff'), text_size: 13, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var awakeTouch = mAdd(createWidget(widget.FILL_RECT, { x: btnX2, y: btnY2, w: btnW, h: btnH, radius: 10, color: 0x000000, alpha: 0 }))
-  awakeTouch.addEventListener(event.CLICK_DOWN, function () { toggleKeepAwake(); try { menu.awakeTxt.setProperty(prop.TEXT, keepAwake ? '常亮开' : '常亮关') } catch (e) {} })
-  menuBtn(btnX3, btnY2, btnW, btnH, '关闭', 0x2C2C2C, MENU_SUB, 15, function () { closeMenu() })
+  awakeTouch.addEventListener(event.CLICK_DOWN, function () { toggleKeepAwake(); try { menu.awakeTxt.setProperty(prop.TEXT, keepAwake ? getText('readerKeepAwakeOn') : getText('readerKeepAwakeOff')) } catch (e) {} })
+  menuBtn(btnX3, btnY2, btnW, btnH, getText('readerClose'), 0x2C2C2C, MENU_SUB, 15, function () { closeMenu() })
 
   menu._poolBuilt = false
 }
@@ -1142,7 +1143,7 @@ function closeJumpPanel() {
       // 重置显示为占位符
       if (jump.widgets[3]) { try { jump.widgets[3].setProperty(prop.TEXT, '___') } catch (e) {} }
       // 重置模式标题
-      if (jump.widgets[5]) { try { jump.widgets[5].setProperty(prop.TEXT, '点击切换：页数 / 百分比') } catch (e) {} }
+      if (jump.widgets[5]) { try { jump.widgets[5].setProperty(prop.TEXT, getText('readerJumpSwitchHint')) } catch (e) {} }
       jump.mode = 'page'
     })
   } else {
@@ -1166,7 +1167,7 @@ function updateJumpDisplay() {
 function addJumpDigit(d) { if (jump.input.length < 6) { jump.input += d; updateJumpDisplay() } }
 function jumpBackspace() { if (jump.input.length > 0) { jump.input = jump.input.slice(0, -1); updateJumpDisplay() } }
 
-function jumpModeLabel() { return jump.mode === 'percent' ? '百分比' : '页数' }
+function jumpModeLabel() { return jump.mode === 'percent' ? getText('readerJumpModePercent') : getText('readerJumpModePage') }
 function jumpConfirm() {
   var val = parseInt(jump.input) || 1
   var target
@@ -1220,9 +1221,9 @@ function openJumpPanel() {
     var modeTouch = createWidget(widget.FILL_RECT, { x: px + 14, y: py + 66, w: pw - 28, h: 32, color: 0x000000, alpha: 0 })
     modeTouch.addEventListener(event.CLICK_DOWN, function () {
       jump.mode = jump.mode === 'page' ? 'percent' : 'page'
-      try { jump.widgets[2].setProperty(prop.TEXT, jump.mode === 'percent' ? '跳页：百分比（1~100）' : '跳页：页数（1~' + estTotal + '）') } catch (e) {}
+      try { jump.widgets[2].setProperty(prop.TEXT, jump.mode === 'percent' ? getText('readerJumpPercentRange') : getText('readerJumpPageRangePrefix') + estTotal + getText('readerJumpPageRangeSuffix')) } catch (e) {}
       try { jump.widgets[3].setProperty(prop.TEXT, '___') } catch (e) {}
-      try { jump.widgets[5].setProperty(prop.TEXT, jump.mode === 'percent' ? '当前：百分比' : '当前：页数') } catch (e) {}
+      try { jump.widgets[5].setProperty(prop.TEXT, jump.mode === 'percent' ? getText('readerCurrentPercent') : getText('readerCurrentPage')) } catch (e) {}
       jump.input = ''
     })
     jump.widgets.push(modeTouch)
@@ -1261,9 +1262,9 @@ function openJumpPanel() {
   }
 
   // ── 更新动态内容 ──
-  try { jump.widgets[2].setProperty(prop.TEXT, '跳页：页数（1~' + estTotal + '）') } catch (e) {}
+  try { jump.widgets[2].setProperty(prop.TEXT, getText('readerJumpPageRangePrefix') + estTotal + getText('readerJumpPageRangeSuffix')) } catch (e) {}
   try { jump.widgets[3].setProperty(prop.TEXT, '___') } catch (e) {}
-  try { jump.widgets[5].setProperty(prop.TEXT, '点击切换：页数 / 百分比') } catch (e) {}
+  try { jump.widgets[5].setProperty(prop.TEXT, getText('readerJumpSwitchHint')) } catch (e) {}
 
   // ── alpha 动画淡入 ──
   var overlay = jump.widgets[0]
@@ -1352,7 +1353,7 @@ Page({
     book = findBook()
     if (!book) {
       clearLoading()
-      createWidget(widget.TEXT, { x: READ_X, y: READ_Y, w: READ_W, h: 60, text: '书籍已删除或尚未接收完成', text_size: 16, color: UI_DANGER, align_h: align.CENTER_H, align_v: align.CENTER_V })
+      createWidget(widget.TEXT, { x: READ_X, y: READ_Y, w: READ_W, h: 60, text: getText('readerBookDeleted'), text_size: 16, color: UI_DANGER, align_h: align.CENTER_H, align_v: align.CENTER_V })
       try { localStorage.removeItem('_reading') } catch (e) {}
       return
     }
@@ -1412,7 +1413,7 @@ Page({
     } else {
       clearLoading()
       createWidget(widget.TEXT, {
-        x: READ_X, y: READ_Y, w: READ_W, h: 60, text: '(读取失败: ' + book.file + ')',
+        x: READ_X, y: READ_Y, w: READ_W, h: 60, text: getText('readerReadFailedFile') + book.file + ')',
         text_size: 16, color: UI_DANGER, align_h: align.LEFT, align_v: align.TOP
       })
       return

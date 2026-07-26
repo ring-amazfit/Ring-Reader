@@ -1,7 +1,7 @@
 {
   "configVersion": "v3",
   "app": {
-    "appId": 83750,
+    "appId": 1121557,
     "appName": "计算器",
     "appType": "app",
     "version": {
@@ -163,10 +163,10 @@
   },
   "i18n": {
     "zh-CN": {
-      "appName": "环间计算器"
+      "appName": "计算器"
     },
     "en-US": {
-      "appName": "Ring Calculator"
+      "appName": "Calculator"
     }
   },
   "defaultLanguage": "zh-CN"

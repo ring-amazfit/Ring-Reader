@@ -1,0 +1,365 @@
+msgid "appName"
+msgstr "环间阅读器"
+
+msgid "calcHistory"
+msgstr "历史记录"
+
+msgid "calcClear"
+msgstr "清空"
+
+msgid "calcClose"
+msgstr "关闭"
+
+msgid "calcNoHistory"
+msgstr "暂无历史"
+
+msgid "shelfOpening"
+msgstr "正在打开…"
+
+msgid "shelfLaunchCalc"
+msgstr "启动计算器"
+
+msgid "shelfOn"
+msgstr "开"
+
+msgid "shelfOff"
+msgstr "关"
+
+msgid "shelfNoBooks"
+msgstr "暂无书籍"
+
+msgid "shelfReceiving"
+msgstr "正在接收"
+
+msgid "shelfOnlineUpload"
+msgstr "在线上传小说"
+
+msgid "shelfUploadGuide"
+msgstr "需在手机操作（手表无法打字）：\n\n1. 打开 Zepp App\n2. 我的 → 我的设备 → 你的手表\n3. 找到本应用 → 应用设置\n4. 填书名 + 粘贴下载直链\n5. 点「开始上传到手表」\n6. 保持 App 前台，回到此书架等待接收"
+
+msgid "shelfGotIt"
+msgstr "知道了"
+
+msgid "shelfSetPwd"
+msgstr "设置新密码（4-8位数字）"
+
+msgid "shelfDeleteBook"
+msgstr "删除这本书？"
+
+msgid "shelfCancel"
+msgstr "取消"
+
+msgid "shelfDelete"
+msgstr "删除"
+
+msgid "shelfDeleteFailed"
+msgstr "删除文件失败，请重试"
+
+msgid "shelfOpenFailed"
+msgstr "打开失败，请重试"
+
+msgid "shelfDone"
+msgstr "完成 ✓"
+
+msgid "shelfRecvFailed"
+msgstr "接收失败"
+
+msgid "shelfRead"
+msgstr "已读 "
+
+msgid "shelfOnline"
+msgstr "线上"
+
+msgid "shelfBuiltin"
+msgstr "内置"
+
+msgid "shelfPwdUpdated"
+msgstr "密码已更新"
+
+msgid "shelfSec"
+msgstr "秒"
+
+msgid "shelfMin"
+msgstr "分"
+
+msgid "shelfHour"
+msgstr "时"
+
+msgid "shelfDay"
+msgstr "天"
+
+msgid "shelfBookUnit"
+msgstr "本"
+
+msgid "shelfTotal"
+msgstr "累计"
+
+msgid "shelfReading"
+msgstr "在读"
+
+msgid "shelfDone2"
+msgstr "读完"
+
+msgid "shelfToday"
+msgstr "今日"
+
+msgid "shelfSpeedUnit"
+msgstr " 字/分钟"
+
+msgid "shelfBtnPwd"
+msgstr "改密"
+
+msgid "shelfBtnStats"
+msgstr "统计"
+
+msgid "shelfBtnAbout"
+msgstr "关于"
+
+msgid "shelfFeatDisguise"
+msgstr "伪装计算器界面"
+
+msgid "shelfFeatBle"
+msgstr "在线传书 · BLE 接收"
+
+msgid "shelfFeatTheme"
+msgstr "8 款阅读主题 · 书签跳页"
+
+msgid "shelfFeatCrown"
+msgstr "表冠翻页 · 滚动模式"
+
+msgid "libraryTestTitle"
+msgstr "测试小说"
+
+msgid "libraryTestAuthor"
+msgstr "作者A"
+
+msgid "weekSun"
+msgstr "日"
+
+msgid "weekMon"
+msgstr "一"
+
+msgid "weekTue"
+msgstr "二"
+
+msgid "weekWed"
+msgstr "三"
+
+msgid "weekThu"
+msgstr "四"
+
+msgid "weekFri"
+msgstr "五"
+
+msgid "weekSat"
+msgstr "六"
+
+msgid "shelfStats"
+msgstr "阅读统计"
+
+msgid "shelfReadSpeed"
+msgstr "阅读速度"
+
+msgid "shelfRecent7d"
+msgstr "近7天阅读（分钟）"
+
+msgid "shelfBack"
+msgstr "返回"
+
+msgid "shelfAboutTitle"
+msgstr "环间阅读器"
+
+msgid "shelfAboutSub"
+msgstr "v3.0.1  ·  伪装计算器"
+
+msgid "shelfAboutQr"
+msgstr "扫码访问开源仓库"
+
+msgid "shelfTitle"
+msgstr "书架"
+
+msgid "readerLoading"
+msgstr "正在加载…"
+
+msgid "readerReadFailed"
+msgstr "(读取失败)"
+
+msgid "readerBookDeleted"
+msgstr "书籍已删除或尚未接收完成"
+
+msgid "readerReadFailedFile"
+msgstr "(读取失败: "
+
+msgid "readerSessionTime"
+msgstr "本次 "
+
+msgid "readerTotalTime"
+msgstr "累计 "
+
+msgid "readerRemain"
+msgstr " · 剩 "
+
+msgid "readerScrollMode"
+msgstr "滚动 "
+
+msgid "readerScrollOn"
+msgstr "开"
+
+msgid "readerScrollOff"
+msgstr "关"
+
+msgid "readerFullscreenOn"
+msgstr "全屏模式"
+
+msgid "readerFullscreenOff"
+msgstr "退出全屏"
+
+msgid "readerBrightnessSystem"
+msgstr "系统"
+
+msgid "readerBookmarkExists"
+msgstr "本页已有书签"
+
+msgid "readerBookmarkAdded"
+msgstr "已加书签"
+
+msgid "readerPage"
+msgstr "页"
+
+msgid "readerNoBookmarks"
+msgstr "还没有书签"
+
+msgid "readerCrownPaging"
+msgstr "表冠翻页"
+
+msgid "readerBookmarks"
+msgstr "书签"
+
+msgid "readerAddBookmark"
+msgstr "＋ 在此页加书签"
+
+msgid "readerFont"
+msgstr "字号"
+
+msgid "readerSpacing"
+msgstr "行距"
+
+msgid "readerBrightness"
+msgstr "亮度"
+
+msgid "readerTheme"
+msgstr "主题"
+
+msgid "readerAuto"
+msgstr "自动"
+
+msgid "readerFullscreen"
+msgstr "全屏"
+
+msgid "readerJump"
+msgstr "跳页"
+
+msgid "readerKeepAwakeOn"
+msgstr "常亮开"
+
+msgid "readerKeepAwakeOff"
+msgstr "常亮关"
+
+msgid "readerJumpSwitchHint"
+msgstr "点击切换：页数 / 百分比"
+
+msgid "readerClose"
+msgstr "关闭"
+
+msgid "readerJumpModePercent"
+msgstr "百分比"
+
+msgid "readerJumpModePage"
+msgstr "页数"
+
+msgid "readerJumpPercentRange"
+msgstr "跳页：百分比（1~100）"
+
+msgid "readerJumpPageRangePrefix"
+msgstr "跳页：页数（1~"
+
+msgid "readerJumpPageRangeSuffix"
+msgstr "）"
+
+msgid "readerCurrentPercent"
+msgstr "当前：百分比"
+
+msgid "readerCurrentPage"
+msgstr "当前：页数"
+
+msgid "readerMinuteSuffix"
+msgstr "分"
+
+msgid "readerHourSuffix"
+msgstr "时"
+
+msgid "readerEstimateRemain"
+msgstr "预计还需"
+
+msgid "readerBatteryCharging"
+msgstr "充"
+
+msgid "themeNight"
+msgstr "夜"
+
+msgid "themeEye"
+msgstr "护眼"
+
+msgid "themePaper"
+msgstr "纸"
+
+msgid "themeBlack"
+msgstr "黑"
+
+msgid "themeDusk"
+msgstr "暮"
+
+msgid "themeFog"
+msgstr "雾"
+
+msgid "themeAutumn"
+msgstr "秋"
+
+msgid "themeIce"
+msgstr "冰"
+
+msgid "spacingTight"
+msgstr "紧"
+
+msgid "spacingNormal"
+msgstr "中"
+
+msgid "spacingLoose"
+msgstr "松"
+
+msgid "spacingLarge"
+msgstr "大"
+
+msgid "autoOff"
+msgstr "关"
+
+msgid "autoSlow"
+msgstr "慢"
+
+msgid "autoNormal"
+msgstr "中"
+
+msgid "autoFast"
+msgstr "快"
+
+msgid "urlInputTitle"
+msgstr "输入下载链接"
+
+msgid "urlEmptyHint"
+msgstr "(空)"
+
+msgid "urlKeyHint"
+msgstr "短按切换字符 · 输入5位以上后点OK"
+
+msgid "urlUnknownBook"
+msgstr "未知书籍"

@@ -9,6 +9,7 @@ import { push } from '@zos/router'
 import { onDigitalCrown, KEY_HOME, KEY_UP, KEY_DOWN, offDigitalCrown, onKey, offKey, onGesture, offGesture, GESTURE_LEFT, GESTURE_RIGHT, GESTURE_UP } from '@zos/interaction'
 import { localStorage } from '@zos/storage'
 import { getDeviceInfo } from '@zos/device'
+import { getText } from '@zos/i18n'
 import { crownDirection, crownDebounceMs, keyDirection } from '../utils/crown'
 
 var W = 480, H = 480
@@ -462,7 +463,7 @@ function buildHistPool() {
   histBg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 222 })
   histBg.addEventListener(event.CLICK_DOWN, function () {})
   createWidget(widget.FILL_RECT, { x: Math.round(78 * S), y: Math.round(62 * S), w: Math.round(324 * S), h: Math.round(346 * S), radius: Math.round(12 * S), color: COL_PANEL_SOFT })
-  histTitle = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(74 * S), w: Math.round(296 * S), h: 22, text: '历史记录', text_size: 16, color: COL_ACCENT_SOFT, align_h: align.CENTER_H })
+  histTitle = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(74 * S), w: Math.round(296 * S), h: 22, text: getText('calcHistory'), text_size: 16, color: COL_ACCENT_SOFT, align_h: align.CENTER_H })
   for (var i = 0; i < MAX_HIST; i++) {
     var y = Math.round(startY * S) + i * Math.round(rowH * S)
     var bg = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 6, radius: 6, color: COL_PANEL })
@@ -473,11 +474,11 @@ function buildHistPool() {
   }
   histNoText = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(200 * S), w: Math.round(296 * S), h: 24, text: '', text_size: 14, color: COL_SUB, align_h: align.CENTER_H })
   createWidget(widget.FILL_RECT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: COL_DEL })
-  histClearTxt = createWidget(widget.TEXT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), text: '清空', text_size: 14, color: 0xE7A6A6, align_h: align.CENTER_H, align_v: align.CENTER_V })
+  histClearTxt = createWidget(widget.TEXT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), text: getText('calcClear'), text_size: 14, color: 0xE7A6A6, align_h: align.CENTER_H, align_v: align.CENTER_V })
   var clr = createWidget(widget.FILL_RECT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: 0x000000, alpha: 0 })
   clr.addEventListener(event.CLICK_DOWN, function () { _histCache = []; try { localStorage.setItem('calc_history', '[]') } catch (e) {} closeHistory(); openHistory() })
   createWidget(widget.FILL_RECT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: COL_BORDER })
-  histCloseTxt = createWidget(widget.TEXT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), text: '关闭', text_size: 14, color: COL_FN_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
+  histCloseTxt = createWidget(widget.TEXT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), text: getText('calcClose'), text_size: 14, color: COL_FN_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
   var cl = createWidget(widget.FILL_RECT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: 0x000000, alpha: 0 })
   cl.addEventListener(event.CLICK_DOWN, function () { closeHistory() })
   setHistVisible(false)
@@ -542,7 +543,7 @@ function openHistory() {
       try { histRows[i].res.setProperty(prop.TEXT, '') } catch (e) {}
     }
   }
-  try { histNoText.setProperty(prop.TEXT, n === 0 ? '暂无历史' : '') } catch (e) {}
+  try { histNoText.setProperty(prop.TEXT, n === 0 ? getText('calcNoHistory') : '') } catch (e) {}
   // 先设置可见，然后将关键控件 alpha 置 0 再淡入
   setHistVisible(true)
   var fadeInWidgets = []

@@ -1,0 +1,365 @@
+msgid "appName"
+msgstr "Ring Reader"
+
+msgid "calcHistory"
+msgstr "History"
+
+msgid "calcClear"
+msgstr "Clear"
+
+msgid "calcClose"
+msgstr "Close"
+
+msgid "calcNoHistory"
+msgstr "No history"
+
+msgid "shelfOpening"
+msgstr "Opening…"
+
+msgid "shelfLaunchCalc"
+msgstr "Launch Calculator"
+
+msgid "shelfOn"
+msgstr "On"
+
+msgid "shelfOff"
+msgstr "Off"
+
+msgid "shelfNoBooks"
+msgstr "No books"
+
+msgid "shelfReceiving"
+msgstr "Receiving"
+
+msgid "shelfOnlineUpload"
+msgstr "Upload via phone"
+
+msgid "shelfUploadGuide"
+msgstr "Do this on your phone (watch can't type):\n\n1. Open Zepp App\n2. Profile → My Devices → your watch\n3. Find this app → App Settings\n4. Enter title + paste download URL\n5. Tap \"Start Upload to Watch\"\n6. Keep app in foreground, return to bookshelf on watch"
+
+msgid "shelfGotIt"
+msgstr "Got it"
+
+msgid "shelfSetPwd"
+msgstr "Set new password (4-8 digits)"
+
+msgid "shelfDeleteBook"
+msgstr "Delete this book?"
+
+msgid "shelfCancel"
+msgstr "Cancel"
+
+msgid "shelfDelete"
+msgstr "Delete"
+
+msgid "shelfDeleteFailed"
+msgstr "Delete failed, please retry"
+
+msgid "shelfOpenFailed"
+msgstr "Open failed, please retry"
+
+msgid "shelfDone"
+msgstr "Done ✓"
+
+msgid "shelfRecvFailed"
+msgstr "Receive failed"
+
+msgid "shelfRead"
+msgstr "Read "
+
+msgid "shelfOnline"
+msgstr "Online"
+
+msgid "shelfBuiltin"
+msgstr "Built-in"
+
+msgid "shelfPwdUpdated"
+msgstr "Password updated"
+
+msgid "shelfSec"
+msgstr "s"
+
+msgid "shelfMin"
+msgstr "m"
+
+msgid "shelfHour"
+msgstr "h"
+
+msgid "shelfDay"
+msgstr "d"
+
+msgid "shelfBookUnit"
+msgstr "books"
+
+msgid "shelfTotal"
+msgstr "Total"
+
+msgid "shelfReading"
+msgstr "Reading"
+
+msgid "shelfDone2"
+msgstr "Finished"
+
+msgid "shelfToday"
+msgstr "Today"
+
+msgid "shelfSpeedUnit"
+msgstr " wpm"
+
+msgid "shelfBtnPwd"
+msgstr "PIN"
+
+msgid "shelfBtnStats"
+msgstr "Stats"
+
+msgid "shelfBtnAbout"
+msgstr "About"
+
+msgid "shelfFeatDisguise"
+msgstr "Calculator disguise UI"
+
+msgid "shelfFeatBle"
+msgstr "Upload via BLE"
+
+msgid "shelfFeatTheme"
+msgstr "8 themes · Bookmarks"
+
+msgid "shelfFeatCrown"
+msgstr "Crown paging · Scroll mode"
+
+msgid "libraryTestTitle"
+msgstr "Test Novel"
+
+msgid "libraryTestAuthor"
+msgstr "Author A"
+
+msgid "weekSun"
+msgstr "Sun"
+
+msgid "weekMon"
+msgstr "Mon"
+
+msgid "weekTue"
+msgstr "Tue"
+
+msgid "weekWed"
+msgstr "Wed"
+
+msgid "weekThu"
+msgstr "Thu"
+
+msgid "weekFri"
+msgstr "Fri"
+
+msgid "weekSat"
+msgstr "Sat"
+
+msgid "shelfStats"
+msgstr "Reading Stats"
+
+msgid "shelfReadSpeed"
+msgstr "Reading speed"
+
+msgid "shelfRecent7d"
+msgstr "Last 7 days (min)"
+
+msgid "shelfBack"
+msgstr "Back"
+
+msgid "shelfAboutTitle"
+msgstr "Ring Reader"
+
+msgid "shelfAboutSub"
+msgstr "v3.0.1  ·  Calculator disguise"
+
+msgid "shelfAboutQr"
+msgstr "Scan to visit repo"
+
+msgid "shelfTitle"
+msgstr "Bookshelf"
+
+msgid "readerLoading"
+msgstr "Loading…"
+
+msgid "readerReadFailed"
+msgstr "(Read failed)"
+
+msgid "readerBookDeleted"
+msgstr "Book deleted or not yet received"
+
+msgid "readerReadFailedFile"
+msgstr "(Read failed: "
+
+msgid "readerSessionTime"
+msgstr "Session "
+
+msgid "readerTotalTime"
+msgstr "Total "
+
+msgid "readerRemain"
+msgstr " · Left "
+
+msgid "readerScrollMode"
+msgstr "Scroll "
+
+msgid "readerScrollOn"
+msgstr "On"
+
+msgid "readerScrollOff"
+msgstr "Off"
+
+msgid "readerFullscreenOn"
+msgstr "Fullscreen"
+
+msgid "readerFullscreenOff"
+msgstr "Exit fullscreen"
+
+msgid "readerBrightnessSystem"
+msgstr "System"
+
+msgid "readerBookmarkExists"
+msgstr "Bookmark already exists"
+
+msgid "readerBookmarkAdded"
+msgstr "Bookmark added"
+
+msgid "readerPage"
+msgstr "Page"
+
+msgid "readerNoBookmarks"
+msgstr "No bookmarks"
+
+msgid "readerCrownPaging"
+msgstr "Crown to page"
+
+msgid "readerBookmarks"
+msgstr "Bookmarks"
+
+msgid "readerAddBookmark"
+msgstr "＋ Add bookmark here"
+
+msgid "readerFont"
+msgstr "Font"
+
+msgid "readerSpacing"
+msgstr "Spacing"
+
+msgid "readerBrightness"
+msgstr "Bright"
+
+msgid "readerTheme"
+msgstr "Theme"
+
+msgid "readerAuto"
+msgstr "Auto"
+
+msgid "readerFullscreen"
+msgstr "Full"
+
+msgid "readerJump"
+msgstr "Jump"
+
+msgid "readerKeepAwakeOn"
+msgstr "Awake On"
+
+msgid "readerKeepAwakeOff"
+msgstr "Awake Off"
+
+msgid "readerJumpSwitchHint"
+msgstr "Tap to switch: Page / Percent"
+
+msgid "readerClose"
+msgstr "Close"
+
+msgid "readerJumpModePercent"
+msgstr "Percent"
+
+msgid "readerJumpModePage"
+msgstr "Page"
+
+msgid "readerJumpPercentRange"
+msgstr "Jump: Percent (1~100)"
+
+msgid "readerJumpPageRangePrefix"
+msgstr "Jump: Page (1~"
+
+msgid "readerJumpPageRangeSuffix"
+msgstr ")"
+
+msgid "readerCurrentPercent"
+msgstr "Current: Percent"
+
+msgid "readerCurrentPage"
+msgstr "Current: Page"
+
+msgid "readerMinuteSuffix"
+msgstr "m"
+
+msgid "readerHourSuffix"
+msgstr "h"
+
+msgid "readerEstimateRemain"
+msgstr "About"
+
+msgid "readerBatteryCharging"
+msgstr "Chg"
+
+msgid "themeNight"
+msgstr "Night"
+
+msgid "themeEye"
+msgstr "Eye"
+
+msgid "themePaper"
+msgstr "Paper"
+
+msgid "themeBlack"
+msgstr "Black"
+
+msgid "themeDusk"
+msgstr "Dusk"
+
+msgid "themeFog"
+msgstr "Fog"
+
+msgid "themeAutumn"
+msgstr "Autumn"
+
+msgid "themeIce"
+msgstr "Ice"
+
+msgid "spacingTight"
+msgstr "Tight"
+
+msgid "spacingNormal"
+msgstr "Mid"
+
+msgid "spacingLoose"
+msgstr "Loose"
+
+msgid "spacingLarge"
+msgstr "Large"
+
+msgid "autoOff"
+msgstr "Off"
+
+msgid "autoSlow"
+msgstr "Slow"
+
+msgid "autoNormal"
+msgstr "Mid"
+
+msgid "autoFast"
+msgstr "Fast"
+
+msgid "urlInputTitle"
+msgstr "Enter download URL"
+
+msgid "urlEmptyHint"
+msgstr "(empty)"
+
+msgid "urlKeyHint"
+msgstr "Tap to switch char · 5+ chars then OK"
+
+msgid "urlUnknownBook"
+msgstr "Unknown book"

@@ -2,6 +2,8 @@
 * 环间计算器 — Zepp App 设置页（美化版 v3·深色质感）
 * 深色背景 + 琥珀点缀 + 卡片分离 + 状态醒目
 */
+import { gettext } from 'i18n'
+
 var ACCENT = '#D8924B'
 var ACCENT_LIGHT = '#E0A862'
 var BG_DARK = '#111111'
@@ -31,44 +33,44 @@ var phase = ss.getItem('_bk_phase') || 'idle'
 var progress = parseInt(ss.getItem('_bk_progress') || '0') || 0
 if (progress < 0) progress = 0
 if (progress > 100) progress = 100
-var isError = phase === 'error' || status.indexOf('失败') >= 0
+var isError = phase === 'error'
 var isDone = phase === 'done'
 var barColor = isError ? ERROR_RED : (isDone ? SUCCESS_GREEN : AMBER)
-var statusText = status || '等待上传'
+var statusText = status || gettext('settingWaiting')
 
 return View({ style: { background: BG_DARK, width: '100%', minHeight: '100%' } }, [
 // 横幅 + 标题
 Image({ src: BANNER, style: { width: '100%', borderRadius: '14px', marginBottom: '8px', marginTop: '16px' } }),
-Text({ style: { fontSize: '22px', fontWeight: 'bold', color: TEXT_PRIMARY, textAlign: 'center', marginBottom: '4px' }, text: '环间阅读器' }),
-Text({ style: { fontSize: '12px', color: TEXT_SECONDARY, textAlign: 'center', marginBottom: '16px' }, text: '伪装计算器 · 手表上看小说' }),
+Text({ style: { fontSize: '22px', fontWeight: 'bold', color: TEXT_PRIMARY, textAlign: 'center', marginBottom: '4px' }, text: gettext('settingAppName') }),
+Text({ style: { fontSize: '12px', color: TEXT_SECONDARY, textAlign: 'center', marginBottom: '16px' }, text: gettext('settingAppSub') }),
 // 上传表单
 Card([
-Text({ style: { fontSize: '14px', fontWeight: 'bold', color: ACCENT_LIGHT, marginBottom: '6px' }, text: '📕 书名' }),
-TextInput({ label: '📕 书名', placeholder: '例如：三体', value: title, onChange: function (v) { ss.setItem('_bk_title', v || '') } }),
-Text({ style: { fontSize: '11px', color: TEXT_SECONDARY, marginTop: '2px', marginBottom: '8px' }, text: '小说名称，必填' }),
-Text({ style: { fontSize: '14px', fontWeight: 'bold', color: ACCENT_LIGHT, marginBottom: '6px' }, text: '🔗 TXT 下载直链' }),
-TextInput({ label: '🔗 TXT 直链', multiline: true, rows: 3, value: url, placeholder: 'https://.../book.txt',
+Text({ style: { fontSize: '14px', fontWeight: 'bold', color: ACCENT_LIGHT, marginBottom: '6px' }, text: gettext('settingBookTitle') }),
+TextInput({ label: gettext('settingBookTitle'), placeholder: gettext('settingBookPlaceholder'), value: title, onChange: function (v) { ss.setItem('_bk_title', v || '') } }),
+Text({ style: { fontSize: '11px', color: TEXT_SECONDARY, marginTop: '2px', marginBottom: '8px' }, text: gettext('settingBookHint') }),
+Text({ style: { fontSize: '14px', fontWeight: 'bold', color: ACCENT_LIGHT, marginBottom: '6px' }, text: gettext('settingUrlLabel') }),
+TextInput({ label: gettext('settingUrlLabel'), multiline: true, rows: 3, value: url, placeholder: gettext('settingUrlPlaceholder'),
 onChange: function (v) { ss.setItem('_bk_url', v || '') } }),
-Text({ style: { fontSize: '11px', color: AMBER, marginTop: '2px', marginBottom: '4px' }, text: '直链需为可直接下载的链接，UTF-8 编码' }),
+Text({ style: { fontSize: '11px', color: AMBER, marginTop: '2px', marginBottom: '4px' }, text: gettext('settingUrlHint') }),
 Button({
-label: '📋 从剪贴板粘贴',
+label: gettext('settingPasteBtn'),
 style: { fontSize: '12px', borderRadius: '7px', background: CARD_SOFT, color: TEXT_SECONDARY, marginTop: '4px', marginBottom: '6px' },
 onClick: function () {
 var cb = ss.getItem('_clipboard') || ''
 if (cb && cb.indexOf('http') === 0) { ss.setItem('_bk_url', cb); return }
-ss.setItem('_bk_status', '未检测到剪贴板中的直链，请手动粘贴')
+ss.setItem('_bk_status', gettext('settingClipboardNotFound'))
 }
 }),
 Button({
-label: '🚀 开始上传到手表',
+label: gettext('settingUploadBtn'),
 style: { fontSize: '15px', borderRadius: '8px', background: ACCENT, color: '#fff', marginTop: '8px', padding: '10px' },
 onClick: function () {
 var t = (ss.getItem('_bk_title') || '').trim()
 var u = (ss.getItem('_bk_url') || '').trim()
 function err(m) { ss.setItem('_bk_status', m); ss.setItem('_bk_phase', 'error'); ss.setItem('_bk_progress', '0') }
-if (!t || !u) return err('请填写书名和直链')
-if (u.indexOf('http') !== 0) return err('直链需以 http:// 或 https:// 开头')
-ss.setItem('_bk_status', '任务已提交，等待手机服务响应')
+if (!t || !u) return err(gettext('settingErrNoTitleOrUrl'))
+if (u.indexOf('http') !== 0) return err(gettext('settingErrUrlScheme'))
+ss.setItem('_bk_status', gettext('settingTaskSubmitted'))
 ss.setItem('_bk_phase', 'queued'); ss.setItem('_bk_progress', '1')
 ss.setItem('_dl_trigger', JSON.stringify({ title: t, url: u, ts: Date.now() }))
 
@@ -77,7 +79,7 @@ ss.setItem('_dl_trigger', JSON.stringify({ title: t, url: u, ts: Date.now() }))
 ]),
 // 进度 + 状态
 Card([
-Text({ style: { fontSize: '14px', fontWeight: 'bold', color: TEXT_PRIMARY, marginBottom: '8px' }, text: '进度 ' + progress + '%' }),
+Text({ style: { fontSize: '14px', fontWeight: 'bold', color: TEXT_PRIMARY, marginBottom: '8px' }, text: gettext('settingProgressLabel') + progress + '%' }),
 View({ style: { height: '8px', borderRadius: '4px', background: CARD_SOFT, marginBottom: '8px' } }, [
 View({ style: { height: '8px', width: progress + '%', borderRadius: '4px', background: barColor } }, [])
 ]),
@@ -85,22 +87,22 @@ SoftCard([
 Text({ style: { fontSize: '13px', color: isError ? ERROR_RED : (isDone ? SUCCESS_GREEN : TEXT_SECONDARY) }, text: statusText })
 ]),
 Button({
-label: '清除状态',
+label: gettext('settingClearBtn'),
 style: { fontSize: '11px', borderRadius: '8px', background: CARD_SOFT, color: TEXT_SECONDARY, marginTop: '6px' },
 onClick: function () { ss.setItem('_bk_status', ''); ss.setItem('_bk_phase', 'idle'); ss.setItem('_bk_progress', '0') }
 })
 ]),
 // 使用教程
 Card([
-Text({ style: { fontSize: '14px', fontWeight: 'bold', color: TEXT_PRIMARY, marginBottom: '6px' }, text: '📖 使用教程' }),
+Text({ style: { fontSize: '14px', fontWeight: 'bold', color: TEXT_PRIMARY, marginBottom: '6px' }, text: gettext('settingTutorialTitle') }),
 View({ style: { width: '36px', height: '3px', borderRadius: '2px', background: ACCENT, marginBottom: '10px' } }, []),
-Text({ paragraph: true, style: { fontSize: '12px', color: TEXT_SECONDARY, marginBottom: '6px' }, text: '① 填书名+直链 → ② 点上传 → ③ 保持App前台 → ④ 手表留在书架页等待接收' }),
-Text({ paragraph: true, style: { fontSize: '11px', color: TEXT_MUTED, marginBottom: '4px' }, text: '• 仅支持 UTF-8 编码的 .txt 文件' }),
-Text({ paragraph: true, style: { fontSize: '11px', color: TEXT_MUTED }, text: '• 手表端：计算器 → 123456按= → 书架等接收' })
+Text({ paragraph: true, style: { fontSize: '12px', color: TEXT_SECONDARY, marginBottom: '6px' }, text: gettext('settingTutorialStep') }),
+Text({ paragraph: true, style: { fontSize: '11px', color: TEXT_MUTED, marginBottom: '4px' }, text: gettext('settingTutorialUtf8') }),
+Text({ paragraph: true, style: { fontSize: '11px', color: TEXT_MUTED }, text: gettext('settingTutorialWatch') })
 ]),
 // 底部签名行
 View({ style: { alignItems: 'center', marginBottom: '20px', marginTop: '4px' } }, [
-Text({ style: { fontSize: '11px', color: TEXT_MUTED }, text: '环间阅读器 · v3.0.1 · 石墨 / 琥珀' })
+Text({ style: { fontSize: '11px', color: TEXT_MUTED }, text: gettext('settingFooter') })
 ])
 ])
 }
