@@ -11,6 +11,7 @@
   <a href="#界面预览">界面预览</a> ·
   <a href="#传书步骤">传书</a> ·
   <a href="#开发与构建">开发</a> ·
+  <a href="./README_EN.md">English</a> ·
   <a href="./LICENSE">MIT License</a>
 </p>
 
