@@ -11,37 +11,41 @@ import { localStorage } from '@zos/storage'
 import { getDeviceInfo } from '@zos/device'
 import { getText } from '@zos/i18n'
 import { crownDirection, crownDebounceMs, keyDirection } from '../utils/crown'
+import { C as UI, M, animFadeGroup } from '../utils/ui'  // C 与本页换算钮工厂 C() 同名，故取别名
 
 var W = 480, H = 480
 
-var COL_BG = 0x141414
-var COL_NUM = 0x242424
-var COL_NUM_T = 0xF5F5F5
-var COL_OP = 0x303030
-var COL_OP_T = 0xEDEDED
-var COL_FN = 0x3A3A3A
-var COL_FN_T = 0xE0E0E0
-var COL_DEL = 0x4A2C2C
-var COL_DEL_T = 0xE7A6A6
-var COL_EQ = 0xD8924B
-var COL_EQ_T = 0xFFFFFF
-var COL_DISP = 0xF5F5F5
-var COL_SUB = 0x9A9A9A
-var COL_PANEL = 0x181818
-var COL_PANEL_SOFT = 0x202020
-var COL_ACCENT_SOFT = 0xD8A25A
-var COL_BORDER = 0x333333
+// 计算器色阶：与阅读器 / 书架共用 utils/ui.js 令牌，只在按键分级上区分层次。
+// 文字一律用白（数字键尤其），只有 = 键用琥珀底 + 深字。
+var COL_BG = UI.bg
+var COL_NUM = 0x2A2C33            // 数字键（最亮一阶，视觉主体）
+var COL_NUM_T = 0xFFFFFF          // 数字：纯白
+var COL_OP = 0x22242A            // 运算符键（比数字键沉一阶）
+var COL_OP_T = 0xFFFFFF          // 运算符：纯白
+var COL_FN = 0x191B20            // 函数键（最沉，让数字跳出来）
+var COL_FN_T = 0xFFFFFF          // 函数 / 换算：纯白
+var COL_DEL = UI.dangerBg
+var COL_DEL_T = 0xF0A8A0
+var COL_EQ = UI.accent
+var COL_EQ_T = 0xFFFFFF          // = 键（橙色）上的文字：纯白
+var COL_DISP = 0xFFFFFF           // 显示区：纯白
+var COL_SUB = UI.sub
+var COL_PANEL = UI.card
+var COL_PANEL_SOFT = UI.cardAlt
+var COL_ACCENT_SOFT = UI.accentSoft
+var COL_BORDER = UI.track
 
 // 网格：5 列 4 行，居中（computeLayout 按屏幕尺寸缩放）
 var COLS = 5
 var CELL = 62, GAP = 8, STEP = CELL + GAP
+var CELL_R = 18            // 按键圆角（squircle：整圆会让 km/h>m/s 这类长标签溢出）
 var GRID_X = 69, GRID_Y = 112, DOTS_Y = 392
 function computeLayout() {
   var di; try { di = getDeviceInfo() } catch (e) { di = null }
   W = (di && di.width) ? di.width : 480
   H = (di && di.height) ? di.height : 480
   var S = W / 480
-  CELL = Math.round(62 * S); GAP = Math.round(8 * S); STEP = CELL + GAP
+  CELL = Math.round(62 * S); GAP = Math.round(8 * S); STEP = CELL + GAP; CELL_R = Math.round(18 * S)
   GRID_X = Math.round((W - (COLS * CELL + (COLS - 1) * GAP)) / 2)
   GRID_Y = Math.round(112 * S)
   DOTS_Y = H - Math.round(88 * S)
@@ -61,13 +65,13 @@ var PAGES = [
     B('×', '×', '×', OP), B('7', '7'), B('8', '8'), B('9', '9'), B('+', '+', '+', OP),
     B('÷', '÷', '÷', OP), B('4', '4'), B('5', '5'), B('6', '6'), B('-', '-', '-', OP),
     B('±', '-', '-', OP, 'neg'), B('1', '1'), B('2', '2'), B('3', '3'), B('=', '', '', EQ, 'eq'),
-    B('C', '', '', DEL, 'clear'), B('0', '0'), B('.', '.'), null, null
+    B('C', '', '', DEL, 'clear'), B('0', '0'), B('.', '.'), B('√x', '√', 'sqrt(', FN, 'sqrt'), null
   ],
   // 函数
   [
     B('(', '(', '(', FN), B(')', ')', ')', FN), B('π', 'π', 'π', FN), B('e', 'e', 'e', FN), B('|x|', 'abs(', 'abs(', FN),
     B('x^2', '^2', '^2', FN), B('x^y', '^', '^', FN), B('ln', 'ln(', 'ln(', FN), B('log', 'log(', 'log(', FN), B('floor', 'floor(', 'floor(', FN),
-    B('x^3', '^3', '^3', FN), B('x!', '!', '!', FN), B('sqrt', 'sqrt(', 'sqrt(', FN), B('cbrt', 'cbrt(', 'cbrt(', FN), B('ceil', 'ceil(', 'ceil(', FN),
+    B('x^3', '^3', '^3', FN), B('x!', '!', '!', FN), B('x√y', '√', '√', FN, 'root'), B('cbrt', 'cbrt(', 'cbrt(', FN), B('ceil', 'ceil(', 'ceil(', FN),
     B('ans', 'ans', 'ans', FN), B('exp', 'exp(', 'exp(', FN), B('mod', '%', '%', OP), null, null
   ],
   // 三角
@@ -130,7 +134,7 @@ function updateDisplay(text) {
     if (size !== _lastDispSize) {
       var S0 = W / 480
       displayWidget.setProperty(prop.MORE, {
-        x: Math.round(92 * S0), y: Math.round(70 * S0), w: Math.round(248 * S0), h: Math.round(46 * S0), text: s, text_size: size, color: COL_DISP,
+        x: Math.round(107 * S0), y: Math.round(60 * S0), w: Math.round(220 * S0), h: Math.round(42 * S0), text: s, text_size: size, color: COL_DISP,
         align_h: align.RIGHT, align_v: align.CENTER_V
       })
       _lastDispSize = size
@@ -196,6 +200,7 @@ function evaluate(str) {
       if (cc === 215 || cc === 42) { pos++; v *= P() }       // × or *
       else if (cc === 247 || cc === 47) { pos++; v /= P() }  // ÷ or /
       else if (cc === 37) { pos++; v = v % P() }             // %
+      else if (cc === 8730) { pos++; v = _pow(P(), 1 / v) }  // √: a√b = b 的 a 次方根
       else return v
     }
   }
@@ -227,6 +232,8 @@ function evaluate(str) {
     }
     if (cc === 960) { pos++; return _PI }
     // 手动数字解析（避免 parseFloat + substring 分配）
+    // 支持科学计数法：1.5e-7 / 1e+21 —— 历史记录里指数结果（fmtResult 输出 1.2e+6 之类）
+    // 点回输入框后再按 = 必须能重新求值，否则会报“表达式不完整”。
     if ((cc >= 48 && cc <= 57) || cc === 46) {
       var num = 0, frac = 0, fracDiv = 1, hasDot = false, hasDigit = false
       while (pos < len) {
@@ -239,7 +246,15 @@ function evaluate(str) {
         else break
       }
       if (!hasDigit) throw new Error('非法数字')
-      return num + frac / fracDiv
+      var base = num + frac / fracDiv
+      // 指数部分
+      if (pos < len && (s[pos] === 'e' || s[pos] === 'E')) {
+        var ep = pos + 1, neg = false, expNum = 0, expHas = false
+        if (ep < len && (s[ep] === '+' || s[ep] === '-')) { neg = s[ep] === '-'; ep++ }
+        while (ep < len && s.charCodeAt(ep) >= 48 && s.charCodeAt(ep) <= 57) { expNum = expNum * 10 + (s.charCodeAt(ep) - 48); expHas = true; ep++ }
+        if (expHas) { pos = ep; return base * Math.pow(10, neg ? -expNum : expNum) }
+      }
+      return base
     }
     // 函数名 / 常量（使用 FUNCS 表，避免展开大分支拖慢 QuickJS 解释器）
     if (cc >= 97 && cc <= 122) {
@@ -296,6 +311,9 @@ function saveHistory(expr, result) {
       _histCache = []
       try { _histCache = JSON.parse(localStorage.getItem('calc_history', '[]')) } catch (e) {}
     }
+    // 去重：与最后一条完全相同（重复按 = 或点历史后重算）就不再追加
+    var last = _histCache[_histCache.length - 1]
+    if (last && last.e === expr && last.r === result) return
     _histCache.push({ e: expr, r: result })
     if (_histCache.length > 20) _histCache = _histCache.slice(_histCache.length - 20)
     localStorage.setItem('calc_history', JSON.stringify(_histCache))
@@ -311,7 +329,7 @@ function doEquals() {
   setTimeout(function () {
     try {
       var expr = dispStr(false)
-      var v = evaluate(ps)
+      var v = evaluate(autoCloseParens(ps))
       var out = fmtResult(v)
       if (out === 'Error') { updateDisplay('Error'); tokens = []; cursor = 0; calcBusy = false; return }
       lastAns = +v
@@ -341,12 +359,55 @@ function doConv(b) {
   setResultTokens(out)
 }
 
+// 自动补全未闭合括号：√9 → sqrt(9)，不用手动输入右括号
+function autoCloseParens(s) {
+  var open = 0
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i)
+    if (c === 40) open++          // (
+    else if (c === 41) { if (open > 0) open-- }  // )
+  }
+  while (open-- > 0) s += ')'
+  return s
+}
+
+// 平方根：在最后一个数字前插入 √（先输数字后点 √，或先点 √ 再输数均可）
+function doSqrt() {
+  var idx = -1
+  for (var i = tokens.length - 1; i >= 0; i--) {
+    if (/^[\d.]+$/.test(tokens[i].p)) { idx = i; break }
+  }
+  var nt = { d: '√', p: 'sqrt(' }
+  if (idx >= 0) tokens.splice(idx, 0, nt)
+  else tokens.splice(tokens.length, 0, nt)
+  cursor = tokens.length
+  updateDisplay()
+}
+
+// 自定义根号：在最后一个数字后插入 √ 运算符（a√b = b 的 a 次方根）
+function doRoot() {
+  var idx = -1
+  for (var i = tokens.length - 1; i >= 0; i--) {
+    if (/^[\d.]+$/.test(tokens[i].p)) { idx = i; break }
+  }
+  var nt = { d: '√', p: '√' }
+  if (idx >= 0) tokens.splice(idx + 1, 0, nt)
+  else {
+    // 没有先输入根指数：默认按 2 次根（平方根）处理，避免表达式以 √ 开头报错
+    tokens.splice(tokens.length, 0, { d: '2', p: '2' }, nt)
+  }
+  cursor = tokens.length
+  updateDisplay()
+}
+
 function onButton(b) {
   if (!b || calcBusy) return
   if (b.act === 'eq') doEquals()
   else if (b.act === 'clear') doClear()
   else if (b.act === 'neg') doNeg()
   else if (b.act === 'conv') doConv(b)
+  else if (b.act === 'sqrt') doSqrt()
+  else if (b.act === 'root') doRoot()
   else pushToken(b)
 }
 
@@ -371,9 +432,9 @@ function buildSlots() {
   for (var idx = 0; idx < COLS * 4; idx++) {
     var row = Math.floor(idx / COLS), col = idx % COLS
     var x = GRID_X + col * STEP, y = GRID_Y + row * STEP
-    var bg = createWidget(widget.FILL_RECT, { x: x, y: y, w: CELL, h: CELL, radius: 16, color: COL_BG })
+    var bg = createWidget(widget.FILL_RECT, { x: x, y: y, w: CELL, h: CELL, radius: CELL_R, color: COL_BG })
     var txt = createWidget(widget.TEXT, { x: x, y: y, w: CELL, h: CELL, text: '', text_size: 20, color: 0xFFFFFF, align_h: align.CENTER_H, align_v: align.CENTER_V })
-    var touch = createWidget(widget.FILL_RECT, { x: x, y: y, w: CELL, h: CELL, radius: 16, color: 0x000000, alpha: 0 })
+    var touch = createWidget(widget.FILL_RECT, { x: x, y: y, w: CELL, h: CELL, radius: CELL_R, color: 0x000000, alpha: 0 })
     var slot = { bg: bg, txt: txt, touch: touch, x: x, y: y, base: COL_BG }
     touch.addEventListener(event.CLICK_DOWN, (function (s, i) {
       return function () {
@@ -396,12 +457,12 @@ function applyPage() {
       var cc = btnColors(b.c)
       if (!prev || prev.l !== b.l || prev.c !== b.c) {
         s.base = cc[0]
-        try { s.bg.setProperty(prop.MORE, { x: s.x, y: s.y, w: CELL, h: CELL, radius: 16, color: cc[0] }) } catch (e) {}
+        try { s.bg.setProperty(prop.MORE, { x: s.x, y: s.y, w: CELL, h: CELL, radius: CELL_R, color: cc[0] }) } catch (e) {}
         try { s.txt.setProperty(prop.MORE, { x: s.x, y: s.y, w: CELL, h: CELL, text: b.l, text_size: fsOf(b.l), color: cc[1], align_h: align.CENTER_H, align_v: align.CENTER_V }) } catch (e) {}
       }
     } else if (prev) {
       s.base = COL_BG
-      try { s.bg.setProperty(prop.MORE, { x: s.x, y: s.y, w: CELL, h: CELL, radius: 16, color: COL_BG }) } catch (e) {}
+      try { s.bg.setProperty(prop.MORE, { x: s.x, y: s.y, w: CELL, h: CELL, radius: CELL_R, color: COL_BG }) } catch (e) {}
       try { s.txt.setProperty(prop.TEXT, '') } catch (e) {}
     }
   }
@@ -421,8 +482,9 @@ function lighten(c) {
   return (Math.min(255, r + 40) << 16) | (Math.min(255, g + 40) << 8) | Math.min(255, b + 40)
 }
 function pressFlash(bw, base, gx, gy) {
-  bw.setProperty(prop.MORE, { x: gx, y: gy, w: CELL, h: CELL, radius: 16, color: lighten(base) })
-  setTimeout(function () { try { bw.setProperty(prop.MORE, { x: gx, y: gy, w: CELL, h: CELL, radius: 16, color: base }) } catch (e) {} }, 25)
+  var r = CELL_R
+  bw.setProperty(prop.MORE, { x: gx, y: gy, w: CELL, h: CELL, radius: r, color: lighten(base) })
+  setTimeout(function () { try { bw.setProperty(prop.MORE, { x: gx, y: gy, w: CELL, h: CELL, radius: r, color: base }) } catch (e) {} }, 25)
 }
 
 // 圆点也用池：只建一次，切页改宽度/颜色
@@ -433,7 +495,7 @@ function buildDots() {
   var sx = Math.round((W - totalW) / 2), y = DOTS_Y
   for (var p = 0; p < n; p++) {
     var dx = sx + p * (dw + dgap)
-    var d = createWidget(widget.FILL_RECT, { x: dx, y: y, w: dw, h: dw, radius: 4, color: COL_PANEL_SOFT })
+    var d = createWidget(widget.FILL_RECT, { x: dx, y: y, w: dw, h: dw, radius: 4, color: COL_BORDER })
     var t = createWidget(widget.FILL_RECT, { x: dx - 8, y: y - 12, w: dw + 16, h: 32, color: 0x000000, alpha: 0 })
     t.addEventListener(event.CLICK_DOWN, (function (pp) { return function () { setPage(pp) } })(p))
     dots.push({ d: d, t: t, x: dx, y: y })
@@ -442,7 +504,7 @@ function buildDots() {
 function applyDots() {
   for (var p = 0; p < dots.length; p++) {
     var active = p === page
-    try { dots[p].d.setProperty(prop.MORE, { x: dots[p].x, y: dots[p].y, w: active ? 18 : 8, h: 8, radius: 4, color: active ? COL_EQ : COL_BORDER }) } catch (e) {}
+    try { dots[p].d.setProperty(prop.MORE, { x: dots[p].x, y: dots[p].y, w: active ? 20 : 8, h: 8, radius: 4, color: active ? UI.accent : COL_BORDER }) } catch (e) {}
   }
 }
 
@@ -457,36 +519,49 @@ var hist = { active: false }
 var histBg = null, histTitle = null, histRows = [], histNoText = null
 var histClearTxt = null, histCloseTxt = null, MAX_HIST = 5
 var startY = 104, rowH = 42
+// 池化控件里“未保存引用”的可见底块：关闭时必须一起隐藏，否则残留背景
+var histPanelBg = null, histClearBg = null, histCloseBg = null, histLine = null
 
 function buildHistPool() {
   var S = W / 480
-  histBg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 222 })
+  histBg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: UI.bg, alpha: 255 })
   histBg.addEventListener(event.CLICK_DOWN, function () {})
-  createWidget(widget.FILL_RECT, { x: Math.round(78 * S), y: Math.round(62 * S), w: Math.round(324 * S), h: Math.round(346 * S), radius: Math.round(12 * S), color: COL_PANEL_SOFT })
-  histTitle = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(74 * S), w: Math.round(296 * S), h: 22, text: getText('calcHistory'), text_size: 16, color: COL_ACCENT_SOFT, align_h: align.CENTER_H })
+  // 面板卡片 + 签名线 + 内嵌行
+  // 不画 324×346 方板：圆屏上四角会出界。历史页整屏铺底，行卡片自己承担层次。
+  histPanelBg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COL_BG })
+  histTitle = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(74 * S), w: Math.round(296 * S), h: 22, text: getText('calcHistory'), text_size: M.tsTitle, color: UI.text, align_h: align.CENTER_H })
+  // 签名细线
+  histLine = createWidget(widget.FILL_RECT, { x: Math.round(224 * S), y: Math.round(102 * S), w: Math.round(32 * S), h: Math.round(3 * S), radius: Math.round(2 * S), color: UI.accent })
+  // 行首偏移：签名线下方开始
+  var rowTop = 112
   for (var i = 0; i < MAX_HIST; i++) {
-    var y = Math.round(startY * S) + i * Math.round(rowH * S)
-    var bg = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 6, radius: 6, color: COL_PANEL })
-    var expr = createWidget(widget.TEXT, { x: Math.round(104 * S), y: y + 3, w: Math.round(272 * S), h: 16, text: '', text_size: 12, color: COL_SUB })
-    var res = createWidget(widget.TEXT, { x: Math.round(104 * S), y: y + 18, w: Math.round(272 * S), h: 18, text: '', text_size: 15, color: COL_NUM_T })
-    var touch = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 6, radius: 8, color: 0x000000, alpha: 0 })
+    var y = Math.round(rowTop * S) + i * Math.round(rowH * S)
+    var bg = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 8, radius: M.rowR, color: COL_PANEL_SOFT })
+    var expr = createWidget(widget.TEXT, { x: Math.round(106 * S), y: y + 3, w: Math.round(268 * S), h: 16, text: '', text_size: M.tsMeta, color: COL_SUB })
+    var res = createWidget(widget.TEXT, { x: Math.round(106 * S), y: y + 18, w: Math.round(268 * S), h: 18, text: '', text_size: M.tsRow, color: COL_NUM_T })
+    var touch = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 8, radius: M.rowR, color: 0x000000, alpha: 0 })
     histRows.push({ bg: bg, expr: expr, res: res, touch: touch })
   }
-  histNoText = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(200 * S), w: Math.round(296 * S), h: 24, text: '', text_size: 14, color: COL_SUB, align_h: align.CENTER_H })
-  createWidget(widget.FILL_RECT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: COL_DEL })
-  histClearTxt = createWidget(widget.TEXT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), text: getText('calcClear'), text_size: 14, color: 0xE7A6A6, align_h: align.CENTER_H, align_v: align.CENTER_V })
-  var clr = createWidget(widget.FILL_RECT, { x: Math.round(96 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: 0x000000, alpha: 0 })
+  histNoText = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(210 * S), w: Math.round(296 * S), h: 24, text: '', text_size: M.tsVal, color: COL_SUB, align_h: align.CENTER_H })
+  var hbY = Math.round(342 * S), hbW = Math.round(132 * S), hbH = Math.round(40 * S), hbR = Math.round(hbH / 2)
+  histClearBg = createWidget(widget.FILL_RECT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: COL_DEL })
+  histClearTxt = createWidget(widget.TEXT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, text: getText('calcClear'), text_size: M.tsVal, color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
+  var clr = createWidget(widget.FILL_RECT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: 0x000000, alpha: 0 })
   clr.addEventListener(event.CLICK_DOWN, function () { _histCache = []; try { localStorage.setItem('calc_history', '[]') } catch (e) {} closeHistory(); openHistory() })
-  createWidget(widget.FILL_RECT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: COL_BORDER })
-  histCloseTxt = createWidget(widget.TEXT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), text: getText('calcClose'), text_size: 14, color: COL_FN_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
-  var cl = createWidget(widget.FILL_RECT, { x: Math.round(256 * S), y: Math.round(344 * S), w: Math.round(128 * S), h: Math.round(38 * S), radius: 9, color: 0x000000, alpha: 0 })
+  histCloseBg = createWidget(widget.FILL_RECT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: UI.accent })
+  histCloseTxt = createWidget(widget.TEXT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, text: getText('calcClose'), text_size: M.tsVal, color: UI.onAccent, align_h: align.CENTER_H, align_v: align.CENTER_V })
+  var cl = createWidget(widget.FILL_RECT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: 0x000000, alpha: 0 })
   cl.addEventListener(event.CLICK_DOWN, function () { closeHistory() })
   setHistVisible(false)
 }
 
 function setHistVisible(v) {
   var a = v ? 255 : 0
-  try { histBg.setProperty(prop.MORE, { alpha: v ? 222 : 0 }) } catch (e) {}
+  try { histBg.setProperty(prop.MORE, { alpha: v ? 255 : 0 }) } catch (e) {}
+  try { histPanelBg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
+  try { histLine.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
+  try { histClearBg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
+  try { histCloseBg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
   try { histTitle.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
   try { histNoText.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
   try { histClearTxt.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
@@ -500,23 +575,9 @@ function setHistVisible(v) {
 }
 
 function closeHistory() {
-  // 淡出动画后关闭
-  var fadeWidgets = []
-  if (histBg) fadeWidgets.push(histBg)
-  if (histTitle) fadeWidgets.push(histTitle)
-  if (histNoText) fadeWidgets.push(histNoText)
-  if (histClearTxt) fadeWidgets.push(histClearTxt)
-  if (histCloseTxt) fadeWidgets.push(histCloseTxt)
-  if (fadeWidgets.length > 0) {
-    var _tw = fadeWidgets
-    animFadeGroup(_tw, 255, 0, 6, 30, function () {
-      setHistVisible(false)
-      hist.active = false
-    })
-  } else {
-    setHistVisible(false)
-    hist.active = false
-  }
+  // 同步关闭（可靠优先）：立即隐藏全部控件并复位状态
+  setHistVisible(false)
+  hist.active = false
 }
 
 function openHistory() {
@@ -530,13 +591,14 @@ function openHistory() {
   for (var i = 0; i < MAX_HIST; i++) {
     if (i < n) {
       var it = h[h.length - 1 - i]
-      var y = Math.round(startY * S) + i * Math.round(rowH * S)
-      try { histRows[i].bg.setProperty(prop.MORE, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 6, radius: 8, color: COL_PANEL, alpha: 255 }) } catch (e) {}
+      var y = Math.round(112 * S) + i * Math.round(rowH * S)
+      try { histRows[i].bg.setProperty(prop.MORE, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 8, radius: M.rowR, color: COL_PANEL_SOFT, alpha: 255 }) } catch (e) {}
       try { histRows[i].expr.setProperty(prop.TEXT, trim(it.e, 26)) } catch (e) {}
       try { histRows[i].res.setProperty(prop.TEXT, '= ' + trim(it.r, 22)) } catch (e) {}
       try { histRows[i].touch.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
       histRows[i].touch.removeAllListeners && histRows[i].touch.removeAllListeners()
-      histRows[i].touch.addEventListener(event.CLICK_DOWN, (function (res) { return function () { closeHistory(); insertText(res) } })(it.r))
+      // 点历史行 = 把该条结果整体替换进输入区（而不是在光标处逐字插入）
+      histRows[i].touch.addEventListener(event.CLICK_DOWN, (function (res) { return function () { closeHistory(); setResultTokens(res) } })(it.r))
     } else {
       try { histRows[i].bg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
       try { histRows[i].expr.setProperty(prop.TEXT, '') } catch (e) {}
@@ -544,37 +606,19 @@ function openHistory() {
     }
   }
   try { histNoText.setProperty(prop.TEXT, n === 0 ? getText('calcNoHistory') : '') } catch (e) {}
-  // 先设置可见，然后将关键控件 alpha 置 0 再淡入
+  // 先设置可见，然后将关键控件 alpha 置 0 再淡入（遮罩目标 222，其余 255）
   setHistVisible(true)
-  var fadeInWidgets = []
-  if (histBg) { try { histBg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInWidgets.push(histBg) }
-  if (histTitle) { try { histTitle.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInWidgets.push(histTitle) }
-  if (histNoText) { try { histNoText.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInWidgets.push(histNoText) }
-  if (histClearTxt) { try { histClearTxt.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInWidgets.push(histClearTxt) }
-  if (histCloseTxt) { try { histCloseTxt.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInWidgets.push(histCloseTxt) }
-  animFadeGroup(fadeInWidgets, 0, 255, 8, 30)
+  var fadeInOthers = []
+  if (histTitle) { try { histTitle.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInOthers.push(histTitle) }
+  if (histNoText) { try { histNoText.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInOthers.push(histNoText) }
+  if (histClearTxt) { try { histClearTxt.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInOthers.push(histClearTxt) }
+  if (histCloseTxt) { try { histCloseTxt.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} fadeInOthers.push(histCloseTxt) }
+  if (histBg) { try { histBg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {} animFadeGroup([histBg], 0, 255, 8, 30) }
+  animFadeGroup(fadeInOthers, 0, 255, 8, 30)
 }
 function trim(s, m) { s = String(s); return s.length > m ? s.substring(0, m - 1) + '…' : s }
-function insertText(s) {
-  for (var i = 0; i < s.length; i++) { tokens.splice(cursor, 0, { d: s.charAt(i), p: s.charAt(i) }); cursor++ }
-  updateDisplay()
-}
 
-// ── 动画辅助 ──
-function animFadeGroup(widgets, fromA, toA, steps, delay, onDone) {
-  if (!widgets || widgets.length === 0) { if (onDone) onDone(); return }
-  var cur = fromA, total = toA - fromA, step = Math.round(total / steps), n = steps
-  function tick() {
-    cur += step; n--
-    if (n <= 0) cur = toA
-    for (var i = 0; i < widgets.length; i++) {
-      if (widgets[i]) try { widgets[i].setProperty(prop.MORE, { alpha: cur }) } catch (e) {}
-    }
-    if (n > 0) setTimeout(tick, delay)
-    else if (onDone) setTimeout(onDone, 0)
-  }
-  tick()
-}
+// animFadeGroup 已统一到 utils/ui.js
 
 function moveByInput(direction) {
   if (!direction || hist.active) return
@@ -605,17 +649,18 @@ Page({
       return
     }
     createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COL_BG })
-    // 表达式显示面板（约束在圆内安全区，避免被圆边裁切）
-    createWidget(widget.FILL_RECT, { x: Math.round(78 * S), y: Math.round(62 * S), w: Math.round(324 * S), h: Math.round(58 * S), radius: Math.round(16 * S), color: COL_PANEL_SOFT })
-    // 顶部显示（带光标，右对齐）
+    // 表达式输入框：圆角底板。面板 y=54 底边 108，与键盘第一行（y=112）不重叠。
+    // 四角 (95,54) 实测 235.9 < 238，完整落在圆屏内。
+    createWidget(widget.FILL_RECT, { x: Math.round(95 * S), y: Math.round(54 * S), w: Math.round(290 * S), h: Math.round(54 * S), radius: Math.round(18 * S), color: COL_PANEL_SOFT })
+    // 顶部显示（带光标，右对齐；右侧留给 DEL 键）
     displayWidget = createWidget(widget.TEXT, {
-      x: Math.round(92 * S), y: Math.round(70 * S), w: Math.round(248 * S), h: Math.round(46 * S), text: '0', text_size: 38, color: COL_DISP,
+      x: Math.round(107 * S), y: Math.round(60 * S), w: Math.round(220 * S), h: Math.round(42 * S), text: '0', text_size: 38, color: COL_DISP,
       align_h: align.RIGHT, align_v: align.CENTER_V
     })
-    // 删除键（面板右上，暗红）
-    createWidget(widget.FILL_RECT, { x: Math.round(350 * S), y: Math.round(70 * S), w: Math.round(44 * S), h: Math.round(40 * S), radius: Math.round(10 * S), color: COL_DEL })
-    createWidget(widget.TEXT, { x: Math.round(350 * S), y: Math.round(70 * S), w: Math.round(44 * S), h: Math.round(40 * S), text: 'DEL', text_size: 13, color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
-    var delTouch = createWidget(widget.FILL_RECT, { x: Math.round(346 * S), y: Math.round(66 * S), w: Math.round(52 * S), h: Math.round(48 * S), radius: Math.round(10 * S), color: 0x000000, alpha: 0 })
+    // 删除键：面板右上角，暗红圆角块 + DEL 文字（⌫ 在手表字体里是方框，用文本）
+    createWidget(widget.FILL_RECT, { x: Math.round(333 * S), y: Math.round(61 * S), w: Math.round(44 * S), h: Math.round(40 * S), radius: Math.round(12 * S), color: COL_DEL })
+    createWidget(widget.TEXT, { x: Math.round(333 * S), y: Math.round(61 * S), w: Math.round(44 * S), h: Math.round(40 * S), text: 'DEL', text_size: Math.round(13 * S), color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
+    var delTouch = createWidget(widget.FILL_RECT, { x: Math.round(329 * S), y: Math.round(57 * S), w: Math.round(52 * S), h: Math.round(48 * S), radius: Math.round(14 * S), color: 0x000000, alpha: 0 })
     delTouch.addEventListener(event.CLICK_DOWN, function () { doDelete() })
 
     buildSlots()

@@ -9,21 +9,22 @@ import { localStorage } from '@zos/storage'
 import { rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { getText } from '@zos/i18n'
+import { C, M, rowW, animFadeGroup, btnFlash, makeCloseButton } from '../utils/ui'
 
 var W = 480
 var S = 1
-var SAFE = { L: 78, R: 402, T: 65, B: 415 }
-var PAGE_SIZE = 4
+var PAGE_SIZE = 3          // 单列书脊卡，每页 3 张
 // 平面石墨层级：不用黑色叠层模拟阴影，减少脏边和重绘。
-var COL_BG = 0x101010
-var COL_PANEL = 0x181818
-var COL_PANEL_SOFT = 0x202020
-var COL_ACCENT = 0xD8924B      // 强调（琥珀）
-var COL_ACCENT_SOFT = 0xD8A25A
-var COL_TEXT = 0xF5F5F5
-var COL_SUB = 0x9AA0A6
-var COL_MUTED = 0x666666
-var COL_DANGER = 0xB05A52
+var COL_BG = C.bg                // 页面背景
+var COL_PANEL = C.card           // 卡片/面板
+var COL_PANEL_SOFT = C.cardAlt   // 内嵌区/次级按钮
+var COL_ACCENT = C.accent        // 强调（琥珀）
+var COL_ACCENT_SOFT = C.accentSoft
+var COL_TEXT = C.text
+var COL_SUB = C.sub
+var COL_MUTED = C.muted
+var COL_DANGER = C.danger
+var COL_DANGER_BG = C.dangerBg
 var COL_SUCCESS = 0x4CAF50
 
 function sp(v) { return Math.round(v * S) }
@@ -31,7 +32,6 @@ function sp(v) { return Math.round(v * S) }
 function computeShelfLayout() {
   try { var di = getDeviceInfo(); if (di && di.width) W = di.width } catch (e) {}
   S = W / 480
-  SAFE = { L: sp(78), R: sp(402), T: sp(65), B: sp(415) }
 }
 
 // --LIBRARY-DATA-- (内置书数据，手动维护；如需批量导入可写脚本替换此段)
@@ -59,27 +59,7 @@ function trimText(text, max) {
   return text.length > max ? text.substring(0, max - 1) + '…' : text
 }
 
-// ── 动画辅助：控件列表淡入/淡出 ──
-function animFadeGroup(widgets, fromA, toA, steps, delay, onDone) {
-  if (!widgets || widgets.length === 0) { if (onDone) onDone(); return }
-  var cur = fromA, total = toA - fromA, step = Math.round(total / steps), n = steps
-  function tick() {
-    cur += step; n--
-    if (n <= 0) cur = toA
-    for (var i = 0; i < widgets.length; i++) {
-      if (widgets[i]) try { widgets[i].setProperty(prop.MORE, { alpha: cur }) } catch (e) {}
-    }
-    if (n > 0) setTimeout(tick, delay)
-    else if (onDone) setTimeout(onDone, 0)
-  }
-  tick()
-}
-// 按钮按压反馈
-function btnFlash(bgW, origColor) {
-  if (!bgW) return
-  try { bgW.setProperty(prop.MORE, { color: 0x4A4A4A }) } catch (e) {}
-  setTimeout(function () { try { bgW.setProperty(prop.MORE, { color: origColor || 0x2A2A2A }) } catch (e) {} }, 30)
-}
+// animFadeGroup / btnFlash 已统一到 utils/ui.js
 
 // ── localStorage 缓存层：减少反复 JSON.parse ──
 var _cache = {}
@@ -132,6 +112,7 @@ function getAllBooks() {
   return all
 }
 
+
 function addShelfWidget(w) {
   shelfWidgets.push(w)
   return w
@@ -172,8 +153,8 @@ function openBook(book) {
   // 遮罩直接显示，避免一次性打开提示被隐藏。
   openingWidgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: 0x000000, alpha: 225 }))
   // 直接显示一次性打开提示，不创建持续脉冲定时器。
-  openingWidgets.push(createWidget(widget.FILL_RECT, { x: sp(90), y: sp(184), w: sp(300), h: sp(86), radius: sp(14), color: COL_PANEL_SOFT }))
-  openingWidgets.push(createWidget(widget.TEXT, { x: 80, y: 214, w: 320, h: 32, text: getText('shelfOpening'), text_size: 18, color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  openingWidgets.push(createWidget(widget.FILL_RECT, { x: sp(96), y: sp(188), w: sp(288), h: sp(80), radius: sp(M.cardR), color: COL_PANEL }))
+  openingWidgets.push(createWidget(widget.TEXT, { x: 80, y: 214, w: 320, h: 32, text: getText('shelfOpening'), text_size: M.tsTitle, color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   setTimeout(function () {
     if (!shelfAlive) return
     push({ url: 'page/reader', params: { bookId: String(book.id), downloaded: book.downloaded ? '1' : '0' } })
@@ -204,10 +185,10 @@ function toggleLaunchCalc() {
 function renderLaunchButton() {
   clearLaunch()
   var enabled = launchCalcEnabled()
-  var x = sp(148), y = sp(430), w = sp(184), h = sp(26)
-  launchWidgets.push(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: sp(14), color: enabled ? COL_PANEL_SOFT : COL_PANEL }))
-  launchWidgets.push(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: getText('shelfLaunchCalc') + '：' + (enabled ? getText('shelfOn') : getText('shelfOff')), text_size: sp(12), color: enabled ? COL_ACCENT_SOFT : COL_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var t = createWidget(widget.FILL_RECT, { x: x - sp(4), y: y - sp(4), w: w + sp(8), h: h + sp(8), radius: sp(16), color: 0x000000, alpha: 0 })
+  var w = sp(184), h = sp(30), x = Math.round((W - w) / 2), y = sp(412)
+  launchWidgets.push(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: Math.round(h / 2), color: enabled ? COL_PANEL_SOFT : COL_PANEL }))
+  launchWidgets.push(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: getText('shelfLaunchCalc') + '：' + (enabled ? getText('shelfOn') : getText('shelfOff')), text_size: sp(M.tsMeta), color: enabled ? COL_ACCENT_SOFT : COL_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var t = createWidget(widget.FILL_RECT, { x: x - sp(6), y: y - sp(5), w: w + sp(12), h: h + sp(10), radius: Math.round(h / 2) + sp(4), color: 0x000000, alpha: 0 })
   t.addEventListener(event.CLICK_DOWN, toggleLaunchCalc)
   launchWidgets.push(t)
 }
@@ -299,9 +280,9 @@ function doDelete(book) {
 // 透明触摸层最后建（盖文字之上），保证点得到
 function cBtn(x, y, w, h, label, bg, fg, ts, onClick) {
   var bgIdx = confirmWidgets.length
-  confirmWidgets.push(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 10, color: bg }))
+  confirmWidgets.push(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: Math.round(h / 2), color: bg }))
   confirmWidgets.push(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: label, text_size: ts, color: fg, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var t = createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 10, color: 0x000000, alpha: 0 })
+  var t = createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: Math.round(h / 2), color: 0x000000, alpha: 0 })
   t.addEventListener(event.CLICK_DOWN, function () { btnFlash(confirmWidgets[bgIdx], bg); onClick() })
   confirmWidgets.push(t)
 }
@@ -317,19 +298,21 @@ function showDeleteConfirm(book) {
   bg.addEventListener(event.CLICK_DOWN, function () { clearConfirm() })
   confirmWidgets.push(bg)
 
-  confirmWidgets.push(createWidget(widget.FILL_RECT, { x: 92, y: 146, w: 296, h: 192, radius: 20, color: COL_PANEL_SOFT }))
+  confirmWidgets.push(createWidget(widget.FILL_RECT, { x: 84, y: 148, w: 312, h: 188, radius: M.cardR, color: COL_PANEL }))
   try { confirmWidgets[1].setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
   confirmWidgets.push(createWidget(widget.TEXT, {
-    x: 112, y: 168, w: 256, h: 24, text: getText('shelfDeleteBook'),
-    text_size: 17, color: COL_TEXT, align_h: align.CENTER_H
+    x: 104, y: 170, w: 272, h: 24, text: getText('shelfDeleteBook'),
+    text_size: M.tsTitle, color: COL_TEXT, align_h: align.CENTER_H
   }))
+  // 签名细线（琥珀）
+  confirmWidgets.push(createWidget(widget.FILL_RECT, { x: 208, y: 198, w: 64, h: 3, radius: 2, color: COL_ACCENT }))
   confirmWidgets.push(createWidget(widget.TEXT, {
-    x: 112, y: 198, w: 256, h: 36, text: trimText(book.title, 22),
-    text_size: 13, color: COL_SUB, align_h: align.CENTER_H
+    x: 104, y: 208, w: 272, h: 36, text: trimText(book.title, 22),
+    text_size: M.tsVal, color: COL_SUB, align_h: align.CENTER_H
   }))
 
-  cBtn(116, 278, 110, 46, getText('shelfCancel'), COL_PANEL_SOFT, 0xEEEEEE, 16, function () { clearConfirm() })
-  cBtn(254, 278, 110, 46, verb, COL_DANGER, 0xFFFFFF, 16, (function (b) { return function () { doDelete(b) } })(book))
+  cBtn(104, 268, 126, M.btnH, getText('shelfCancel'), COL_PANEL_SOFT, COL_TEXT, M.tsRow, function () { clearConfirm() })
+  cBtn(250, 268, 126, M.btnH, verb, COL_DANGER, 0xFFFFFF, M.tsRow, (function (b) { return function () { doDelete(b) } })(book))
   // 淡入动画
   if (confirmWidgets.length > 1) {
     setTimeout(function () { animFadeGroup([confirmWidgets[0]], 0, 205, 8, 30) }, 10)
@@ -344,62 +327,86 @@ function coverColor(book) {
   return COVER_PAL[h % COVER_PAL.length]
 }
 
-// 封面网格瓦片（按屏幕缩放）
-var TILE_W = 148, TILE_H = 140, COVER_H = 92
+// ── 单列「书脊卡」──
+// 2 列小方块在 480 圆屏上只能给每本书 148px，标题基本读不全，且底部一行必然撞圆边。
+// 改成单列横向卡片：左侧一条彩色书脊（取书名哈希色）+ 书名 + 作者/进度 + 底部进度条。
+// 卡片宽度按所在 y 的圆屏可用宽自适应，与阅读器菜单同一套胶囊语言。
+var CARD_H = 70, CARD_PITCH = 78, CARD_CAP = M.maxW   // 与菜单行同上限，统一视觉宽度
 function updateTileSizes() {
-  TILE_W = sp(148); TILE_H = sp(140); COVER_H = sp(92)
-}
-function drawTile(book, x, y) {
-  var prog = progressMap()[String(book.id)]
-  addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y, w: TILE_W, h: COVER_H, radius: sp(14), color: coverColor(book) }))
-  // 不再叠加整卡黑色阴影；只保留一条窄信息带，避免卡片发脏。
-  addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y + COVER_H - sp(22), w: TILE_W, h: sp(22), radius: sp(8), color: 0x151515, alpha: 220 }))
-  addShelfWidget(createWidget(widget.TEXT, {
-    x: x + sp(8), y: y + sp(8), w: TILE_W - sp(16), h: COVER_H - sp(20), text: trimText(book.title, 22),
-    text_size: sp(15), color: COL_TEXT, align_h: align.CENTER_H, align_v: align.CENTER_V
-  }))
-  if (prog && prog.percent) {
-    addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y + COVER_H - sp(4), w: Math.floor(TILE_W * prog.percent / 100), h: sp(4), color: 0xD8924B }))
-  }
-  var sub = prog && prog.percent ? (getText('shelfRead') + prog.percent + '%') : trimText(book.author || (book.downloaded ? getText('shelfOnline') : getText('shelfBuiltin')), 12)
-  addShelfWidget(createWidget(widget.TEXT, {
-    x: x + sp(8), y: y + COVER_H + sp(4), w: TILE_W - sp(34), h: sp(20), text: sub, text_size: sp(11),
-    color: prog && prog.percent ? 0xD8924B : COL_SUB, align_h: align.LEFT, align_v: align.CENTER_V
-  }))
-  // 打开层：整卡去掉右上角删除区，避免两块可点区域重叠。
-  // 打开层同时支持“长按删除”（复用已验证可点的打开层，作为可靠删除入口）。
-  var DEL = sp(34)
-  var delX = x + TILE_W - DEL
-  var open = addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y, w: TILE_W - DEL, h: TILE_H, radius: sp(10), color: 0x000000, alpha: 0 }))
-  bindCard(open, book)
-  var open2 = addShelfWidget(createWidget(widget.FILL_RECT, { x: delX, y: y + DEL, w: DEL, h: TILE_H - DEL, radius: sp(10), color: 0x000000, alpha: 0 }))
-  bindCard(open2, book)
-  // 删除按钮：圆点承载点击；× 文字画在“圆点下层”透过半透明圆点显示，
-  // 这样顶层只有圆点(可点)，不会被文字层挡住点击。点不到×时长按书卡同样可删除。
-  // 圆点视觉缩小（28→20），热区 DEL 保持 34 不变，确保易点中又不突兀。
-  var onDel = (function (b) { return function () { showDeleteConfirm(b) } })(book)
-  var dot = sp(20), dotOff = Math.round((DEL - dot) / 2)
-  addShelfWidget(createWidget(widget.TEXT, { x: delX + dotOff, y: y + dotOff, w: dot, h: dot, text: '×', text_size: sp(13), color: 0xEEEEEE, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var del = addShelfWidget(createWidget(widget.FILL_RECT, { x: delX + dotOff, y: y + dotOff, w: dot, h: dot, radius: sp(10), color: 0x3A2222, alpha: 180 }))
-  del.addEventListener(event.CLICK_DOWN, onDel)
+  CARD_H = sp(70); CARD_PITCH = sp(78); CARD_CAP = sp(M.maxW)
 }
 
-function drawNav(totalPages) {
-  var y = sp(388)
+function drawTile(book, y) {
+  var prog = progressMap()[String(book.id)]
+  var pct = (prog && prog.percent) ? prog.percent : 0
+  var w = Math.min(CARD_CAP, rowW(y, CARD_H))
+  var x = Math.round((W - w) / 2)
+  var r = sp(18)
+
+  // 卡片底
+  addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: CARD_H, radius: r, color: COL_PANEL }))
+  // 左侧书脊：彩色竖条（书的身份色）
+  var spineW = sp(8)
+  addShelfWidget(createWidget(widget.FILL_RECT, { x: x + sp(10), y: y + sp(12), w: spineW, h: CARD_H - sp(24), radius: sp(4), color: coverColor(book) }))
+
+  var tx = x + sp(28)
+  var delW = sp(40)
+  var textW = w - sp(28) - delW - sp(8)
+
+  // 书名（主）
   addShelfWidget(createWidget(widget.TEXT, {
-    x: sp(200), y: y + sp(6), w: sp(80), h: sp(18), text: (shelfPage + 1) + '/' + totalPages,
-    text_size: sp(11), color: COL_MUTED, align_h: align.CENTER_H
+    x: tx, y: y + sp(12), w: textW, h: sp(22), text: trimText(book.title, 16),
+    text_size: sp(16), color: COL_TEXT, align_h: align.LEFT, align_v: align.CENTER_V
+  }))
+  // 副行：作者 / 来源 + 进度百分比
+  var src = trimText(book.author || (book.downloaded ? getText('shelfOnline') : getText('shelfBuiltin')), 12)
+  addShelfWidget(createWidget(widget.TEXT, {
+    x: tx, y: y + sp(34), w: textW - sp(46), h: sp(16), text: src,
+    text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.LEFT, align_v: align.CENTER_V
+  }))
+  if (pct) {
+    addShelfWidget(createWidget(widget.TEXT, {
+      x: tx + textW - sp(46), y: y + sp(34), w: sp(46), h: sp(16), text: pct + '%',
+      text_size: sp(M.tsMeta), color: COL_ACCENT, align_h: align.RIGHT, align_v: align.CENTER_V
+    }))
+  }
+  // 进度条：底槽 + 琥珀填充（未读也有槽，卡片节奏一致）
+  var barX = tx, barW = textW, barY = y + CARD_H - sp(16)
+  addShelfWidget(createWidget(widget.FILL_RECT, { x: barX, y: barY, w: barW, h: sp(4), radius: sp(2), color: C.track }))
+  if (pct) {
+    addShelfWidget(createWidget(widget.FILL_RECT, { x: barX, y: barY, w: Math.max(sp(4), Math.floor(barW * pct / 100)), h: sp(4), radius: sp(2), color: COL_ACCENT }))
+  }
+
+  // 打开层：卡片左侧主体（避开右侧删除 chip）
+  var open = addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y, w: w - delW, h: CARD_H, radius: r, color: 0x000000, alpha: 0 }))
+  bindCard(open, book)
+  // 删除 chip：右侧居中圆钮，视觉 28 / 热区 40×CARD_H
+  var chip = sp(28), chipX = x + w - sp(14) - chip, chipY = y + Math.round((CARD_H - chip) / 2)
+  addShelfWidget(createWidget(widget.FILL_RECT, { x: chipX, y: chipY, w: chip, h: chip, radius: Math.round(chip / 2), color: COL_DANGER_BG }))
+  addShelfWidget(createWidget(widget.TEXT, { x: chipX, y: chipY, w: chip, h: chip, text: '×', text_size: sp(15), color: COL_DANGER, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var del = addShelfWidget(createWidget(widget.FILL_RECT, { x: x + w - delW, y: y, w: delW, h: CARD_H, radius: r, color: 0x000000, alpha: 0 }))
+  del.addEventListener(event.CLICK_DOWN, (function (b) { return function () { showDeleteConfirm(b) } })(book))
+}
+
+// 翻页控件：左右胶囊 + 中间页码，位于书卡下方 y=340（不与卡片重叠）
+function drawNav(totalPages) {
+  var y = sp(336), bh = sp(34), bw = sp(58)
+  addShelfWidget(createWidget(widget.TEXT, {
+    x: sp(200), y: y, w: sp(80), h: bh, text: (shelfPage + 1) + '/' + totalPages,
+    text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.CENTER_H, align_v: align.CENTER_V
   }))
   if (shelfPage > 0) {
-    var prev = addShelfWidget(createWidget(widget.FILL_RECT, { x: sp(126), y: y - sp(2), w: sp(62), h: sp(34), radius: sp(10), color: COL_PANEL }))
-    addShelfWidget(createWidget(widget.TEXT, { x: sp(126), y: y + sp(4), w: sp(62), h: sp(18), text: '<', text_size: sp(16), color: COL_ACCENT_SOFT, align_h: align.CENTER_H }))
-    var prevTouch = addShelfWidget(createShelfTouch(sp(124), y - sp(4), sp(66), sp(38)))
+    var px = sp(132)
+    var prev = addShelfWidget(createWidget(widget.FILL_RECT, { x: px, y: y, w: bw, h: bh, radius: Math.round(bh / 2), color: COL_PANEL }))
+    addShelfWidget(createWidget(widget.TEXT, { x: px, y: y, w: bw, h: bh, text: '<', text_size: sp(18), color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var prevTouch = addShelfWidget(createShelfTouch(px - sp(4), y - sp(4), bw + sp(8), bh + sp(8)))
     prevTouch.addEventListener(event.CLICK_DOWN, function () { if (!shelfAlive) return; btnFlash(prev, COL_PANEL); if (shelfPage > 0) { shelfPage--; renderShelf() } })
   }
   if (shelfPage < totalPages - 1) {
-    var next = addShelfWidget(createWidget(widget.FILL_RECT, { x: sp(292), y: y - sp(2), w: sp(62), h: sp(34), radius: sp(10), color: COL_PANEL }))
-    addShelfWidget(createWidget(widget.TEXT, { x: sp(292), y: y + sp(4), w: sp(62), h: sp(18), text: '>', text_size: sp(16), color: COL_ACCENT_SOFT, align_h: align.CENTER_H }))
-    var nextTouch = addShelfWidget(createShelfTouch(sp(290), y - sp(4), sp(66), sp(38)))
+    var nx = sp(290)
+    var next = addShelfWidget(createWidget(widget.FILL_RECT, { x: nx, y: y, w: bw, h: bh, radius: Math.round(bh / 2), color: COL_PANEL }))
+    addShelfWidget(createWidget(widget.TEXT, { x: nx, y: y, w: bw, h: bh, text: '>', text_size: sp(18), color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var nextTouch = addShelfWidget(createShelfTouch(nx - sp(4), y - sp(4), bw + sp(8), bh + sp(8)))
     nextTouch.addEventListener(event.CLICK_DOWN, function () { if (!shelfAlive) return; btnFlash(next, COL_PANEL); if (shelfPage < totalPages - 1) { shelfPage++; renderShelf() } })
   }
 }
@@ -411,7 +418,10 @@ function renderShelf() {
 
   if (allBooks.length === 0) {
     addShelfWidget(createWidget(widget.TEXT, {
-      x: sp(80), y: sp(210), w: sp(320), h: sp(24), text: getText('shelfNoBooks'), text_size: sp(14), color: COL_MUTED, align_h: align.CENTER_H
+      x: sp(80), y: sp(200), w: sp(320), h: sp(24), text: getText('shelfNoBooks'), text_size: sp(M.tsRow), color: COL_TEXT, align_h: align.CENTER_H
+    }))
+    addShelfWidget(createWidget(widget.TEXT, {
+      x: sp(80), y: sp(226), w: sp(320), h: sp(18), text: getText('shelfNoBooksHint'), text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.CENTER_H
     }))
     return
   }
@@ -420,15 +430,12 @@ function renderShelf() {
   if (shelfPage >= totalPages) shelfPage = totalPages - 1
   if (shelfPage < 0) shelfPage = 0
 
-  // 2 列网格（按屏宽居中）
-  var gapX = sp(16), gapY = sp(12)
-  var gx = Math.round((W - (2 * TILE_W + gapX)) / 2), gy = sp(100)
+  // 单列，每页 3 张：100 / 178 / 256（卡底 326），翻页控件 336
+  var gy = sp(100)
   var start = shelfPage * PAGE_SIZE
   var end = Math.min(allBooks.length, start + PAGE_SIZE)
   for (var i = start; i < end; i++) {
-    var k = i - start
-    var col = k % 2, row = Math.floor(k / 2)
-    drawTile(allBooks[i], gx + col * (TILE_W + gapX), gy + row * (TILE_H + gapY))
+    drawTile(allBooks[i], gy + (i - start) * CARD_PITCH)
   }
 
   drawNav(totalPages)
@@ -448,21 +455,39 @@ function clearRecv() {
 function showRecv(name, pct, label, color) {
   if (!recvShown) {
     clearRecv()
-    recvWidgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: 0x000000, alpha: 225 }))
-    recvWidgets.push(createWidget(widget.TEXT, { x: 80, y: 150, w: 320, h: 24, text: getText('shelfReceiving'), text_size: 16, color: 0xFFD29A, align_h: align.CENTER_H }))
-    recvTitleText = createWidget(widget.TEXT, { x: 80, y: 180, w: 320, h: 22, text: '', text_size: 13, color: COL_SUB, align_h: align.CENTER_H })
+    // 系统风格：近黑背景 + 中央卡片 + 进度条 + 取消按钮
+    recvWidgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: C.bg, alpha: 228 }))
+    recvWidgets.push(createWidget(widget.FILL_RECT, { x: sp(66), y: sp(138), w: sp(348), h: sp(208), radius: sp(M.cardR), color: COL_PANEL }))
+    recvWidgets.push(createWidget(widget.FILL_RECT, { x: sp(224), y: sp(150), w: sp(32), h: sp(3), radius: sp(2), color: COL_ACCENT }))
+    recvWidgets.push(createWidget(widget.TEXT, { x: sp(80), y: sp(164), w: sp(320), h: sp(24), text: getText('shelfReceiving'), text_size: sp(M.tsTitle), color: COL_TEXT, align_h: align.CENTER_H }))
+    recvTitleText = createWidget(widget.TEXT, { x: sp(80), y: sp(192), w: sp(320), h: sp(22), text: '', text_size: sp(M.tsVal), color: COL_SUB, align_h: align.CENTER_H })
     recvWidgets.push(recvTitleText)
-    recvWidgets.push(createWidget(widget.FILL_RECT, { x: RB_X, y: 224, w: RB_W, h: 10, radius: 5, color: COL_PANEL_SOFT }))
-    recvBarFill = createWidget(widget.FILL_RECT, { x: RB_X, y: 224, w: 2, h: 10, radius: 5, color: 0xD8924B })
+    recvWidgets.push(createWidget(widget.FILL_RECT, { x: sp(100), y: sp(224), w: sp(280), h: sp(6), radius: sp(3), color: C.track }))
+    recvBarFill = createWidget(widget.FILL_RECT, { x: sp(100), y: sp(224), w: sp(2), h: sp(6), radius: sp(3), color: COL_ACCENT })
     recvWidgets.push(recvBarFill)
-    recvPctText = createWidget(widget.TEXT, { x: 80, y: 244, w: 320, h: 26, text: '', text_size: 18, color: 0xFFFFFF, align_h: align.CENTER_H })
+    recvPctText = createWidget(widget.TEXT, { x: sp(80), y: sp(238), w: sp(320), h: sp(26), text: '', text_size: sp(18), color: COL_TEXT, align_h: align.CENTER_H })
     recvWidgets.push(recvPctText)
+    // 取消接收按钮（红色胶囊，touch 层最后创建确保可点）
+    recvWidgets.push(createWidget(widget.FILL_RECT, { x: sp(160), y: sp(278), w: sp(160), h: sp(M.btnH), radius: sp(22), color: COL_DANGER }))
+    recvWidgets.push(createWidget(widget.TEXT, { x: sp(160), y: sp(278), w: sp(160), h: sp(M.btnH), text: getText('shelfRecvCancel'), text_size: sp(M.tsRow), color: 0xFFFFFF, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var cancelT = createWidget(widget.FILL_RECT, { x: sp(154), y: sp(274), w: sp(172), h: sp(M.btnH + 8), radius: sp(22), color: 0x000000, alpha: 0 })
+    cancelT.addEventListener(event.CLICK_DOWN, function () { cancelRecvNow() })
+    recvWidgets.push(cancelT)
     recvShown = true
   }
   var w = Math.floor(RB_W * pct / 100); if (w < 2) w = 2; if (w > RB_W) w = RB_W
-  try { recvBarFill.setProperty(prop.MORE, { x: RB_X, y: 224, w: w, h: 10, radius: 5, color: color || 0xD8924B }) } catch (e) {}
+  try { recvBarFill.setProperty(prop.MORE, { x: sp(100), y: sp(224), w: Math.max(sp(6), Math.floor(sp(280) * pct / 100)), h: sp(6), radius: sp(3), color: color || COL_ACCENT }) } catch (e) {}
   try { recvTitleText.setProperty(prop.TEXT, trimText(name, 18)) } catch (e) {}
   try { recvPctText.setProperty(prop.TEXT, label || (pct + '%')) } catch (e) {}
+}
+
+// 手表端取消接收：写入一次性取消标记（60 秒窗口），并清除接收浮层。
+// app.js 在进度更新与登记书籍前检查该标记：取消后不再更新进度、不登记书籍并删除临时文件。
+function cancelRecvNow() {
+  try { localStorage.setItem('_cancel_recv', '1') } catch (e) {}
+  try { localStorage.setItem('_cancel_recv_ts', String(Date.now())) } catch (e) {}
+  clearRecv()
+  toast(getText('shelfRecvCanceled'))
 }
 
 // 返回 true 表示当前有接收活动（用于自适应轮询提速）
@@ -490,6 +515,16 @@ function checkRecv() {
 var pollTimer = null
 
 function pollNewBooks() {
+  // 清理过期的取消标记（60 秒窗口，避免影响下一次正常传书）
+  try {
+    if (localStorage.getItem('_cancel_recv') === '1') {
+      var cts = parseInt(localStorage.getItem('_cancel_recv_ts') || '0') || 0
+      if (Date.now() - cts > 60000) {
+        localStorage.removeItem('_cancel_recv')
+        localStorage.removeItem('_cancel_recv_ts')
+      }
+    }
+  } catch (e) {}
   var active = checkRecv()
   var hasNew = false
   try { hasNew = localStorage.getItem('_new_book') === '1' } catch (e) {}
@@ -522,17 +557,19 @@ function showUploadHelp() {
   bg.addEventListener(event.CLICK_DOWN, function () {})  // 吸收背景点击
   helpWidgets.push(bg)
   helpWidgets.push(createWidget(widget.TEXT, {
-    x: 84, y: 60, w: 312, h: 28, text: getText('shelfOnlineUpload'), text_size: 18, color: 0xFFD29A, align_h: align.CENTER_H
+    x: 84, y: 56, w: 312, h: 28, text: getText('shelfOnlineUpload'), text_size: M.tsTitle, color: COL_TEXT, align_h: align.CENTER_H
   }))
+  // 签名细线
+  helpWidgets.push(createWidget(widget.FILL_RECT, { x: 200, y: 90, w: 80, h: 3, radius: 2, color: COL_ACCENT }))
   helpWidgets.push(createWidget(widget.TEXT, {
-    x: 78, y: 100, w: 324, h: 240,
+    x: 78, y: 102, w: 324, h: 240,
     text: getText('shelfUploadGuide'),
     text_size: 14, color: COL_TEXT, align_h: align.LEFT, align_v: align.TOP
   }))
   // 知道了按钮（透明触摸层最后建）
-  helpWidgets.push(createWidget(widget.FILL_RECT, { x: 150, y: 356, w: 180, h: 48, radius: 12, color: COL_PANEL_SOFT }))
-  helpWidgets.push(createWidget(widget.TEXT, { x: 150, y: 356, w: 180, h: 48, text: getText('shelfGotIt'), text_size: 17, color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var okT = createWidget(widget.FILL_RECT, { x: 150, y: 356, w: 180, h: 48, radius: 12, color: 0x000000, alpha: 0 })
+  helpWidgets.push(createWidget(widget.FILL_RECT, { x: 150, y: 356, w: 180, h: M.btnH, radius: 22, color: COL_PANEL_SOFT }))
+  helpWidgets.push(createWidget(widget.TEXT, { x: 150, y: 356, w: 180, h: M.btnH, text: getText('shelfGotIt'), text_size: M.tsRow, color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var okT = createWidget(widget.FILL_RECT, { x: 146, y: 352, w: 188, h: M.btnH + 8, radius: 22, color: 0x000000, alpha: 0 })
   okT.addEventListener(event.CLICK_DOWN, function () {
     var helpBgIdx = 1  // panel bg is at index 1
     if (helpWidgets.length > helpBgIdx) btnFlash(helpWidgets[helpBgIdx], COL_PANEL_SOFT)
@@ -562,9 +599,9 @@ function updatePwdDisp() {
 }
 function pwdKey(x, y, w, h, label, bg, fg, onClick) {
   var bgIdx = pwdWidgets.length
-  pwdAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 10, color: bg }))
-  pwdAdd(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: label, text_size: 20, color: fg, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var t = pwdAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 10, color: 0x000000, alpha: 0 }))
+  pwdAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 18, color: bg }))
+  pwdAdd(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: label, text_size: 21, color: fg, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var t = pwdAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 18, color: 0x000000, alpha: 0 }))
   t.addEventListener(event.CLICK_DOWN, function () {
     btnFlash(pwdWidgets[bgIdx], bg)
     onClick()
@@ -572,27 +609,28 @@ function pwdKey(x, y, w, h, label, bg, fg, onClick) {
 }
 function showPwdPanel() {
   clearPwd()
-  var bg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: 0x000000, alpha: 225 })
+  var bg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: C.bg, alpha: 232 })
   try { bg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
   bg.addEventListener(event.CLICK_DOWN, function () {})
   pwdWidgets.push(bg)
-  pwdWidgets.push(createWidget(widget.TEXT, { x: 84, y: 58, w: 312, h: 24, text: getText('shelfSetPwd'), text_size: 15, color: 0xFFD29A, align_h: align.CENTER_H }))
-  pwdDisplayWidget = createWidget(widget.TEXT, { x: 84, y: 88, w: 312, h: 34, text: '____', text_size: 26, color: 0xFFFFFF, align_h: align.CENTER_H, align_v: align.CENTER_V })
+  pwdWidgets.push(createWidget(widget.TEXT, { x: 84, y: 52, w: 312, h: 22, text: getText('shelfSetPwd'), text_size: M.tsMeta, color: COL_SUB, align_h: align.CENTER_H }))
+  pwdDisplayWidget = createWidget(widget.TEXT, { x: 84, y: 74, w: 312, h: 40, text: '____', text_size: 32, color: COL_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V })
   pwdWidgets.push(pwdDisplayWidget)
-  pwdWidgets.push(createWidget(widget.TEXT, { x: 366, y: 50, w: 26, h: 28, text: '×', text_size: 22, color: COL_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var closeT = createWidget(widget.FILL_RECT, { x: 360, y: 46, w: 44, h: 38, color: 0x000000, alpha: 0 })
-  closeT.addEventListener(event.CLICK_DOWN, function () { clearPwd() })
-  pwdWidgets.push(closeT)
+  // 关闭：键盘下方居中圆钮（共用组件）
+  var BDEPS = { createWidget: createWidget, widget: widget, event: event }
+  makeCloseButton(BDEPS, function (w) { pwdWidgets.push(w) }, 382, function () { clearPwd() }, W)
 
-  var gx = 138, gy = 134, bw = 60, bh = 50, gp = 8
-  var keys = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['←', '0', 'OK']]
+  // 与跳页键盘同一规格：键 68×52 / gap 10，全部落在圆屏安全区内
+  var bw = 68, bh = 52, gp = 10
+  var gx = Math.round((W - (3 * bw + 2 * gp)) / 2), gy = 132
+  var keys = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['DEL', '0', 'OK']]
   for (var r = 0; r < 4; r++) {
     for (var c = 0; c < 3; c++) {
       var lb = keys[r][c]
       var x = gx + c * (bw + gp), y = gy + r * (bh + gp)
-      var isOK = lb === 'OK', isDel = lb === '←'
-      var col = isOK ? COL_SUCCESS : (isDel ? 0x3A2430 : COL_PANEL_SOFT)
-      var fcol = isOK ? 0xFFFFFF : 0xEEEEEE
+      var isOK = lb === 'OK', isDel = lb === 'DEL'
+      var col = isOK ? COL_ACCENT : (isDel ? COL_DANGER_BG : COL_PANEL_SOFT)
+      var fcol = isOK ? C.onAccent : (isDel ? COL_DANGER : COL_TEXT)
       ;(function (label, ok, del) {
         pwdKey(x, y, bw, bh, label, col, fcol, function () {
           if (ok) {
@@ -611,12 +649,8 @@ function showPwdPanel() {
     }
   }
   // 淡入动画
-  if (pwdWidgets.length > 1) {
-    setTimeout(function () { animFadeGroup([pwdWidgets[0]], 0, 225, 8, 30) }, 10)
-    setTimeout(function () {
-      var pwdPanel = pwdWidgets[1]
-      animFadeGroup([pwdPanel], 0, 255, 6, 30)
-    }, 50)
+  if (pwdWidgets.length > 0) {
+    setTimeout(function () { animFadeGroup([pwdWidgets[0]], 0, 232, 8, 30) }, 10)
   }
 }
 
@@ -626,8 +660,9 @@ function toast(text) {
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
   for (var i = 0; i < toastWidgets.length; i++) { try { deleteWidget(toastWidgets[i]) } catch (e) {} }
   toastWidgets = []
-  toastWidgets.push(createWidget(widget.FILL_RECT, { x: 120, y: 210, w: 240, h: 56, radius: 14, color: COL_PANEL_SOFT, alpha: 0 }))
-  toastWidgets.push(createWidget(widget.TEXT, { x: 120, y: 210, w: 240, h: 56, text: text, text_size: 16, color: COL_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0 }))
+  // 系统风格底部胶囊提示
+  toastWidgets.push(createWidget(widget.FILL_RECT, { x: sp(100), y: sp(376), w: sp(280), h: sp(48), radius: sp(24), color: COL_PANEL_SOFT, alpha: 0 }))
+  toastWidgets.push(createWidget(widget.TEXT, { x: sp(112), y: sp(376), w: sp(256), h: sp(48), text: text, text_size: sp(M.tsVal), color: COL_TEXT, align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0 }))
   animFadeGroup(toastWidgets, 0, 255, 6, 35)
   var shownWidgets = toastWidgets
   toastTimer = setTimeout(function () {
@@ -657,10 +692,12 @@ function fmtSec(sec) {
 function showStats() {
   clearStats()
   var ACCENT = COL_ACCENT
-  var bg = sAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: 0x000000, alpha: 232 }))
+  var bg = sAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: C.bg, alpha: 255 }))
   try { bg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
   bg.addEventListener(event.CLICK_DOWN, function () {})
-  sAdd(createWidget(widget.TEXT, { x: sp(90), y: sp(50), w: sp(300), h: sp(28), text: getText('shelfStats'), text_size: sp(22), color: ACCENT, align_h: align.CENTER_H }))
+  sAdd(createWidget(widget.TEXT, { x: sp(90), y: sp(46), w: sp(300), h: sp(28), text: getText('shelfStats'), text_size: sp(20), color: COL_TEXT, align_h: align.CENTER_H }))
+  // 签名细线
+  sAdd(createWidget(widget.FILL_RECT, { x: sp(200), y: sp(80), w: sp(80), h: sp(3), radius: sp(2), color: ACCENT }))
 
   var allTime = {}; try { allTime = JSON.parse(localStorage.getItem('read_time', '{}')) } catch (e) {}
   var allProg = {}; try { allProg = JSON.parse(localStorage.getItem('reading_progress', '{}')) } catch (e) {}
@@ -705,22 +742,22 @@ function showStats() {
 
   for (var ri = 0; ri < 4; ri++) {
     var col = ri % 2, row = Math.floor(ri / 2)
-    var bx = sp(76) + col * sp(168), by = sp(82) + row * sp(42)
-    sAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: sp(160), h: sp(36), radius: sp(8), color: COL_PANEL_SOFT }))
-    sAdd(createWidget(widget.TEXT, { x: bx + sp(8), y: by, w: sp(58), h: sp(36), text: items[ri][0], text_size: sp(13), color: COL_MUTED, align_v: align.CENTER_V }))
-    sAdd(createWidget(widget.TEXT, { x: bx + sp(64), y: by, w: sp(88), h: sp(36), text: items[ri][1], text_size: sp(14), color: COL_TEXT, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    var bx = sp(76) + col * sp(168), by = sp(94) + row * sp(42)
+    sAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: sp(160), h: sp(36), radius: sp(M.rowR), color: COL_PANEL }))
+    sAdd(createWidget(widget.TEXT, { x: bx + sp(12), y: by, w: sp(58), h: sp(36), text: items[ri][0], text_size: sp(M.tsMeta), color: COL_SUB, align_v: align.CENTER_V }))
+    sAdd(createWidget(widget.TEXT, { x: bx + sp(64), y: by, w: sp(84), h: sp(36), text: items[ri][1], text_size: sp(M.tsVal), color: COL_TEXT, align_h: align.RIGHT, align_v: align.CENTER_V }))
   }
 
   // 阅读速度（横通栏，位于摘要下方独立行，避免与图表重叠）
   if (speed > 0) {
     var spdY = sp(174)
-    sAdd(createWidget(widget.FILL_RECT, { x: sp(76), y: spdY, w: sp(328), h: sp(30), radius: sp(8), color: COL_PANEL_SOFT }))
-    sAdd(createWidget(widget.TEXT, { x: sp(78), y: spdY, w: sp(140), h: sp(30), text: getText('shelfReadSpeed'), text_size: sp(13), color: COL_MUTED, align_v: align.CENTER_V }))
-    sAdd(createWidget(widget.TEXT, { x: sp(210), y: spdY, w: sp(200), h: sp(30), text: speed + getText('shelfSpeedUnit'), text_size: sp(14), color: COL_ACCENT, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    sAdd(createWidget(widget.FILL_RECT, { x: sp(76), y: spdY, w: sp(328), h: sp(32), radius: sp(M.rowR), color: COL_PANEL }))
+    sAdd(createWidget(widget.TEXT, { x: sp(94), y: spdY, w: sp(140), h: sp(32), text: getText('shelfReadSpeed'), text_size: sp(M.tsMeta), color: COL_SUB, align_v: align.CENTER_V }))
+    sAdd(createWidget(widget.TEXT, { x: sp(200), y: spdY, w: sp(186), h: sp(32), text: speed + getText('shelfSpeedUnit'), text_size: sp(M.tsVal), color: COL_ACCENT, align_h: align.RIGHT, align_v: align.CENTER_V }))
   }
 
   // ── 每周阅读趋势图 ──
-  sAdd(createWidget(widget.TEXT, { x: sp(76), y: sp(208), w: sp(328), h: sp(20), text: getText('shelfRecent7d'), text_size: sp(13), color: COL_MUTED, align_h: align.CENTER_H }))
+  sAdd(createWidget(widget.TEXT, { x: sp(76), y: sp(208), w: sp(328), h: sp(20), text: getText('shelfRecent7d'), text_size: sp(M.tsMeta), color: COL_SUB, align_h: align.CENTER_H }))
 
   var weekDays = [getText('weekSun'), getText('weekMon'), getText('weekTue'), getText('weekWed'), getText('weekThu'), getText('weekFri'), getText('weekSat')]
   var chartX = sp(76), chartW = sp(328), chartY = sp(234), chartH = sp(88)
@@ -738,7 +775,7 @@ function showStats() {
   if (maxVal < 1) maxVal = 1
 
   // 图表背景
-  sAdd(createWidget(widget.FILL_RECT, { x: chartX, y: chartY, w: chartW, h: chartH, radius: sp(8), color: COL_PANEL }))
+  sAdd(createWidget(widget.FILL_RECT, { x: chartX, y: chartY, w: chartW, h: chartH, radius: sp(M.rowR), color: COL_PANEL }))
 
   // 网格线
   for (var gi = 0; gi < 3; gi++) {
@@ -753,7 +790,7 @@ function showStats() {
     var barH = Math.round((chartH - sp(24)) * chartData[bi].mins / maxVal)
     if (chartData[bi].mins > 0 && barH < sp(4)) barH = sp(4)
     var by = chartY + chartH - sp(18) - barH
-    var barColor = chartData[bi].isToday ? ACCENT : 0x2A2A2A
+    var barColor = chartData[bi].isToday ? ACCENT : C.cardAlt
     sAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: barW, h: barH, radius: sp(4), color: barColor }))
     // 数值：柱够高放柱内顶部（白字），否则放柱顶外（灰字），避免高柱数值上溢撞标题
     if (chartData[bi].mins > 0) {
@@ -768,13 +805,13 @@ function showStats() {
   }
 
   // 关闭按钮（y=363 + h=42 = 405，安全区 415 内）
-  var statsCloseBg = sAdd(createWidget(widget.FILL_RECT, { x: sp(170), y: sp(363), w: sp(140), h: sp(42), radius: sp(10), color: COL_PANEL_SOFT }))
-  sAdd(createWidget(widget.TEXT, { x: sp(170), y: sp(363), w: sp(140), h: sp(42), text: getText('shelfBack'), text_size: sp(16), color: 0xFFFFFF, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var cl = sAdd(createWidget(widget.FILL_RECT, { x: sp(170), y: sp(363), w: sp(140), h: sp(42), radius: sp(10), color: 0x000000, alpha: 0 }))
+  var statsCloseBg = sAdd(createWidget(widget.FILL_RECT, { x: sp(164), y: sp(366), w: sp(152), h: sp(M.btnH), radius: sp(22), color: COL_PANEL_SOFT }))
+  sAdd(createWidget(widget.TEXT, { x: sp(164), y: sp(366), w: sp(152), h: sp(M.btnH), text: getText('shelfBack'), text_size: sp(M.tsRow), color: COL_TEXT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var cl = sAdd(createWidget(widget.FILL_RECT, { x: sp(158), y: sp(362), w: sp(164), h: sp(M.btnH + 8), radius: sp(22), color: 0x000000, alpha: 0 }))
   cl.addEventListener(event.CLICK_DOWN, function () { btnFlash(statsCloseBg, COL_PANEL_SOFT); clearStats() })
   // 淡入动画
   var statsOverlay = statsWidgets.length > 0 ? statsWidgets[0] : null
-  setTimeout(function () { if (statsOverlay) animFadeGroup([statsOverlay], 0, 232, 8, 35) }, 10)
+  setTimeout(function () { if (statsOverlay) animFadeGroup([statsOverlay], 0, 255, 8, 35) }, 10)
 }
 
 // ── 关于（环间系列风格：深色背景 + 绿色主题）──
@@ -787,47 +824,60 @@ function aAdd(w) { aboutWidgets.push(w); return w }
 function showAbout() {
   clearAbout()
   var ACCENT = COL_ACCENT
-  var bg = aAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: 0x000000, alpha: 232 }))
+  var bg = aAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: 480, color: C.bg, alpha: 255 }))
   try { bg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
   bg.addEventListener(event.CLICK_DOWN, function () { clearAbout() }) // 点空白处关闭
 
-  // 中央底板卡片
-  var cardX = sp(60), cardY = sp(32), cardW = sp(360), cardH = sp(380)
-  aAdd(createWidget(widget.FILL_RECT, { x: cardX, y: cardY, w: cardW, h: cardH, radius: sp(20), color: COL_PANEL }))
-  // 卡片顶部琥珀细条（签名元素，与书架标题下划线呼应）
-  aAdd(createWidget(widget.FILL_RECT, { x: cardX + sp(140), y: cardY + sp(8), w: sp(80), h: sp(3), radius: sp(2), color: COL_ACCENT }))
-
-  // 图标已删除（用户反馈显示异常）。关于页改为纯文字版式，更干净。
+  // 不画底板卡片：348 宽 × 378 高的方卡在圆屏上四角必然出界（实测顶到 245 > 238）。
+  // 关于页内容本身就铺满整屏，直接用不透明背景承载，只保留顶部琥珀签名条。
+  var cardX = sp(66), cardW = sp(348)
+  aAdd(createWidget(widget.FILL_RECT, { x: Math.round((W - sp(32)) / 2), y: sp(52), w: sp(32), h: sp(3), radius: sp(2), color: COL_ACCENT }))
 
   // 标题 + 版本（紧凑分组）
-  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(100), w: cardW, h: sp(26), text: getText('shelfAboutTitle'), text_size: sp(21), color: 0xFFFFFF, align_h: align.CENTER_H }))
-  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(126), w: cardW, h: sp(18), text: getText('shelfAboutSub'), text_size: sp(13), color: ACCENT, align_h: align.CENTER_H }))
+  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(78), w: cardW, h: sp(26), text: getText('shelfAboutTitle'), text_size: sp(19), color: COL_TEXT, align_h: align.CENTER_H }))
+  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(104), w: cardW, h: sp(18), text: getText('shelfAboutSub'), text_size: sp(M.tsVal), color: ACCENT, align_h: align.CENTER_H }))
 
   // 分隔线
-  aAdd(createWidget(widget.FILL_RECT, { x: cardX + sp(40), y: sp(152), w: cardW - sp(80), h: 1, color: 0x333333 }))
+  aAdd(createWidget(widget.FILL_RECT, { x: cardX + sp(40), y: sp(128), w: cardW - sp(80), h: 1, color: C.line }))
 
   // 特性列表：单列正文式，每行前缀琥珀圆点，更干净有层次
   var features = [getText('shelfFeatDisguise'), getText('shelfFeatBle'), getText('shelfFeatTheme'), getText('shelfFeatCrown')]
-  var listY = sp(160), lineH = sp(18)
+  var listY = sp(136), lineH = sp(17)
   for (var fi = 0; fi < features.length; fi++) {
     var fy = listY + fi * lineH
-    aAdd(createWidget(widget.FILL_RECT, { x: cardX + sp(40), y: fy + sp(7), w: sp(6), h: sp(6), radius: sp(3), color: COL_ACCENT }))
-    aAdd(createWidget(widget.TEXT, { x: cardX + sp(56), y: fy, w: cardW - sp(96), h: lineH, text: features[fi], text_size: sp(13), color: COL_TEXT, align_v: align.CENTER_V }))
+    aAdd(createWidget(widget.FILL_RECT, { x: cardX + sp(40), y: fy + sp(7), w: sp(5), h: sp(5), radius: sp(3), color: COL_ACCENT }))
+    aAdd(createWidget(widget.TEXT, { x: cardX + sp(54), y: fy, w: cardW - sp(94), h: lineH, text: features[fi], text_size: sp(M.tsVal), color: COL_TEXT, align_v: align.CENTER_V }))
   }
 
-  // 开源仓库二维码：扫码打开 https://github.com/ring-amazfit/Ring-Reader
-  var QR = sp(140), qx = (W - QR) / 2, qy = sp(240)
+  // 支持开发者：爱发电赞赏码（新增）
+  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(214), w: cardW, h: sp(18), text: getText('shelfAboutSupport'), text_size: sp(M.tsMeta), color: COL_SUB, align_h: align.CENTER_H }))
+
+  // 双二维码并排：左爱发电赞赏 / 右开源仓库
+  var QR = sp(140), qgap = sp(16)
+  var qx0 = (W - (QR * 2 + qgap)) / 2
+  var qy = sp(232)
   try {
-    aAdd(createWidget(widget.IMG, { x: qx, y: qy, w: QR, h: QR, src: 'qr_github.png' }))
+    aAdd(createWidget(widget.IMG, { x: qx0, y: qy, w: QR, h: QR, src: 'qr_ifdian.png' }))
   } catch (e) {
     // 资源缺失时的占位回退
-    aAdd(createWidget(widget.FILL_RECT, { x: qx, y: qy, w: QR, h: QR, radius: sp(8), color: 0x222222 }))
+    aAdd(createWidget(widget.FILL_RECT, { x: qx0, y: qy, w: QR, h: QR, radius: sp(8), color: 0x222222 }))
   }
-  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(384), w: cardW, h: sp(12), text: getText('shelfAboutQr'), text_size: sp(11), color: COL_MUTED, align_h: align.CENTER_H }))
+  try {
+    aAdd(createWidget(widget.IMG, { x: qx0 + QR + qgap, y: qy, w: QR, h: QR, src: 'qr_github.png' }))
+  } catch (e) {
+    aAdd(createWidget(widget.FILL_RECT, { x: qx0 + QR + qgap, y: qy, w: QR, h: QR, radius: sp(8), color: 0x222222 }))
+  }
+  // 二维码下标签
+  aAdd(createWidget(widget.TEXT, { x: qx0, y: qy + QR + sp(4), w: QR, h: sp(14), text: getText('shelfAboutDonate'), text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.CENTER_H }))
+  aAdd(createWidget(widget.TEXT, { x: qx0 + QR + qgap, y: qy + QR + sp(4), w: QR, h: sp(14), text: getText('shelfAboutQr'), text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.CENTER_H }))
+
+  // 底部版本行
+  aAdd(createWidget(widget.FILL_RECT, { x: cardX + sp(40), y: sp(394), w: cardW - sp(80), h: 1, color: C.line }))
+  aAdd(createWidget(widget.TEXT, { x: cardX, y: sp(398), w: cardW, h: sp(14), text: getText('shelfAboutFooter'), text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.CENTER_H }))
 
   // 淡入动画（仅遮罩淡入，底板及内容直接显示）
   var aboutOverlay = aboutWidgets.length > 0 ? aboutWidgets[0] : null
-  setTimeout(function () { if (aboutOverlay) animFadeGroup([aboutOverlay], 0, 232, 8, 35) }, 10)
+  setTimeout(function () { if (aboutOverlay) animFadeGroup([aboutOverlay], 0, 255, 8, 35) }, 10)
 }
 
 Page({
@@ -835,27 +885,28 @@ Page({
     shelfAlive = true
     computeShelfLayout()
     updateTileSizes()
-    createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: W, color: 0x111111 })
+    createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: W, color: COL_BG })
     createWidget(widget.TEXT, {
-      x: sp(140), y: sp(22), w: sp(200), h: sp(28),
-      text: getText('shelfTitle'), text_size: sp(19), color: 0xF5F5F5,
+      x: sp(140), y: sp(16), w: sp(200), h: sp(26),
+      text: getText('shelfTitle'), text_size: sp(M.tsTitle), color: COL_TEXT,
       align_h: align.CENTER_H
     })
     // 标题下方强调下划线（签名元素，统一圆形屏视觉语言）
-    createWidget(widget.FILL_RECT, { x: sp(220), y: sp(54), w: sp(40), h: sp(3), radius: sp(2), color: COL_ACCENT })
-    // 顶部三按钮（向内收紧适配圆形屏安全区）
-    var _bw = sp(48), _bh = sp(30), _by = SAFE.T   // 按钮下移到圆形屏可见区
-    var _bgap = Math.round((W - 3 * _bw) / 4)
+    createWidget(widget.FILL_RECT, { x: sp(224), y: sp(42), w: sp(32), h: sp(3), radius: sp(2), color: COL_ACCENT })
+    // 顶部三个功能钮：改密 / 统计 / 关于
+    var _bw = sp(84), _bh = sp(32), _by = sp(60)
+    var _bgap = sp(12)
+    var _bx0 = Math.round((W - (3 * _bw + 2 * _bgap)) / 2)
     var _labels = [
       { t: getText('shelfBtnPwd'), f: function () { showPwdPanel() } },
       { t: getText('shelfBtnStats'), f: function () { showStats() } },
       { t: getText('shelfBtnAbout'), f: function () { showAbout() } }
     ]
     for (var _bi = 0; _bi < 3; _bi++) {
-      var _bx = _bgap + _bi * (_bw + _bgap)
-      var _bg2 = createWidget(widget.FILL_RECT, { x: _bx, y: _by, w: _bw, h: _bh, radius: sp(9), color: COL_PANEL })
-      createWidget(widget.TEXT, { x: _bx, y: _by, w: _bw, h: _bh, text: _labels[_bi].t, text_size: sp(13), color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V })
-      var _touch = createWidget(widget.FILL_RECT, { x: _bx - sp(2), y: _by - sp(2), w: _bw + sp(4), h: _bh + sp(4), radius: sp(9), color: 0x000000, alpha: 0 })
+      var _bx = _bx0 + _bi * (_bw + _bgap)
+      var _bg2 = createWidget(widget.FILL_RECT, { x: _bx, y: _by, w: _bw, h: _bh, radius: Math.round(_bh / 2), color: COL_PANEL })
+      createWidget(widget.TEXT, { x: _bx, y: _by, w: _bw, h: _bh, text: _labels[_bi].t, text_size: sp(M.tsMeta), color: COL_ACCENT_SOFT, align_h: align.CENTER_H, align_v: align.CENTER_V })
+      var _touch = createWidget(widget.FILL_RECT, { x: _bx - sp(3), y: _by - sp(4), w: _bw + sp(6), h: _bh + sp(8), radius: Math.round(_bh / 2), color: 0x000000, alpha: 0 })
       _touch.addEventListener(event.CLICK_DOWN, (function (btnBg, fn) {
         return function () { btnFlash(btnBg, COL_PANEL); fn() }
       })(_bg2, _labels[_bi].f))

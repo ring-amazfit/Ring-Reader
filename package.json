@@ -1,11 +1,11 @@
 {
   "name": "ring-reader",
-  "version": "3.0.1",
+  "version": "3.2.0",
   "description": "环间阅读器",
   "scripts": {
     "build": "npx zeus build",
     "preview": "npx zeus preview",
-    "test": "node tests/crown.test.js"
+    "test": "node tests/crown.test.js && node tests/geometry.test.js"
   },
   "devDependencies": {
     "@zeppos/zeus-cli": "^1.0.0"

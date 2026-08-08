@@ -6,6 +6,7 @@
  */
 import { localStorage } from '@zos/storage'
 import TransferFile from '@zos/ble/TransferFile'
+import { rmSync } from '@zos/fs'
 
 var _tf = null
 var _inbox = null
@@ -52,6 +53,38 @@ function registerBook(fileObject) {
 }
 
 var _lastRecvTs = 0
+
+// ── 手表端取消接收 ──
+// 书架接收浮层的“取消”按钮写入 _cancel_recv 标记（60 秒窗口）。
+// 收到标记后：不再更新接收进度、不登记书籍，并尝试删除已收到的临时文件。
+var CANCEL_WINDOW = 60000
+function isCancelPending() {
+  try {
+    if (localStorage.getItem('_cancel_recv') !== '1') return false
+    var ts = parseInt(localStorage.getItem('_cancel_recv_ts') || '0') || 0
+    return (Date.now() - ts) < CANCEL_WINDOW
+  } catch (e) { return false }
+}
+function clearCancelPending() {
+  try {
+    localStorage.removeItem('_cancel_recv')
+    localStorage.removeItem('_cancel_recv_ts')
+  } catch (e) {}
+}
+function tryDeleteIncoming(fileObject) {
+  var path = (fileObject && (fileObject.filePath || fileObject.fileName)) || ''
+  if (!path) return
+  var candidates = [path]
+  try {
+    if (path.indexOf('data://') === 0) candidates.push(path.substring(7))
+    else if (path.indexOf('/data/') === 0) candidates.push(path.substring(6))
+    else candidates.push('/data/' + path)
+  } catch (e) {}
+  for (var i = 0; i < candidates.length; i++) {
+    try { rmSync({ path: candidates[i] }); break } catch (e) {}
+  }
+}
+
 function setRecv(state, pct, name) {
   var now = Date.now()
   // recv 进度节流到 ~200ms 一次；done/error 立即写
@@ -67,6 +100,7 @@ function handleIncoming(fileObject) {
   // 接收进度（百分比 + 供书架画进度条）
   try {
     fileObject.on('progress', function (event) {
+      if (isCancelPending()) return   // 已取消：停止更新进度浮层
       var d = event && event.data ? event.data : {}
       if (d.fileSize) {
         var pct = Math.floor((d.loadedSize || 0) * 100 / d.fileSize)
@@ -81,13 +115,19 @@ function handleIncoming(fileObject) {
   try {
     fileObject.on('change', function (event) {
       var st = event && event.data ? event.data.readyState : ''
-      if (st === 'transferred') { if (registerBook(fileObject)) setRecv('done', 100, nm) }
+      if (st === 'transferred') {
+        if (isCancelPending()) { clearCancelPending(); tryDeleteIncoming(fileObject); return }  // 已取消：不登记、删临时文件
+        if (registerBook(fileObject)) setRecv('done', 100, nm)
+      }
       else if (st === 'error') { setRecv('error', 0, nm) }
     })
   } catch (e) {}
 
   // 队列里已传完的文件：仅新书才提示完成（避免重开 app 旧文件重放误弹）
-  if (fileObject.filePath) { if (registerBook(fileObject)) setRecv('done', 100, nm) }
+  if (fileObject.filePath) {
+    if (isCancelPending()) { clearCancelPending(); tryDeleteIncoming(fileObject); return }
+    if (registerBook(fileObject)) setRecv('done', 100, nm)
+  }
 }
 
 function getInbox(tf) {

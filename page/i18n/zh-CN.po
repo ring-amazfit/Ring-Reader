@@ -28,6 +28,9 @@ msgstr "关"
 msgid "shelfNoBooks"
 msgstr "暂无书籍"
 
+msgid "shelfNoBooksHint"
+msgstr "手机端应用设置可传书"
+
 msgid "shelfReceiving"
 msgstr "正在接收"
 
@@ -63,6 +66,12 @@ msgstr "完成 ✓"
 
 msgid "shelfRecvFailed"
 msgstr "接收失败"
+
+msgid "shelfRecvCancel"
+msgstr "取消接收"
+
+msgid "shelfRecvCanceled"
+msgstr "已取消接收"
 
 msgid "shelfRead"
 msgstr "已读 "
@@ -170,10 +179,19 @@ msgid "shelfAboutTitle"
 msgstr "环间阅读器"
 
 msgid "shelfAboutSub"
-msgstr "v3.0.1  ·  伪装计算器"
+msgstr "v3.2.0  ·  伪装计算器"
 
 msgid "shelfAboutQr"
-msgstr "扫码访问开源仓库"
+msgstr "开源仓库"
+
+msgid "shelfAboutSupport"
+msgstr "支持开发者"
+
+msgid "shelfAboutDonate"
+msgstr "爱发电 @shynion"
+
+msgid "shelfAboutFooter"
+msgstr "v3.2.0 · 石墨 / 琥珀"
 
 msgid "shelfTitle"
 msgstr "书架"
@@ -298,6 +316,30 @@ msgstr "分"
 msgid "readerHourSuffix"
 msgstr "时"
 
+msgid "readerStyle"
+msgstr "样式"
+
+msgid "readerStyleTitle"
+msgstr "阅读样式"
+
+msgid "readerStylePreview"
+msgstr "调整预览"
+
+msgid "readerStyleSample"
+msgstr "窗外下着雨，他合上了书，起身看向窗外。暮色四合，街灯一盏盏亮起来。"
+
+msgid "readerStyleBack"
+msgstr "完成"
+
+msgid "readerCrown"
+msgstr "表冠"
+
+msgid "readerMenuTitle"
+msgstr "菜单"
+
+msgid "readerKeepAwake"
+msgstr "常亮"
+
 msgid "readerEstimateRemain"
 msgstr "预计还需"
 
@@ -363,3 +405,9 @@ msgstr "短按切换字符 · 输入5位以上后点OK"
 
 msgid "urlUnknownBook"
 msgstr "未知书籍"
+
+
+
+
+
+

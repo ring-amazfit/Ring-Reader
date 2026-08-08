@@ -28,6 +28,9 @@ msgstr "Off"
 msgid "shelfNoBooks"
 msgstr "No books"
 
+msgid "shelfNoBooksHint"
+msgstr "Transfer books from the phone app"
+
 msgid "shelfReceiving"
 msgstr "Receiving"
 
@@ -63,6 +66,12 @@ msgstr "Done ✓"
 
 msgid "shelfRecvFailed"
 msgstr "Receive failed"
+
+msgid "shelfRecvCancel"
+msgstr "Cancel"
+
+msgid "shelfRecvCanceled"
+msgstr "Receive canceled"
 
 msgid "shelfRead"
 msgstr "Read "
@@ -170,10 +179,19 @@ msgid "shelfAboutTitle"
 msgstr "Ring Reader"
 
 msgid "shelfAboutSub"
-msgstr "v3.0.1  ·  Calculator disguise"
+msgstr "v3.2.0  ·  Calculator disguise"
 
 msgid "shelfAboutQr"
-msgstr "Scan to visit repo"
+msgstr "GitHub repo"
+
+msgid "shelfAboutSupport"
+msgstr "Support the developer"
+
+msgid "shelfAboutDonate"
+msgstr "IfDian @shynion"
+
+msgid "shelfAboutFooter"
+msgstr "v3.2.0 · Graphite / Amber"
 
 msgid "shelfTitle"
 msgstr "Bookshelf"
@@ -298,6 +316,30 @@ msgstr "m"
 msgid "readerHourSuffix"
 msgstr "h"
 
+msgid "readerStyle"
+msgstr "Style"
+
+msgid "readerStyleTitle"
+msgstr "Reading Style"
+
+msgid "readerStylePreview"
+msgstr "Adjust preview"
+
+msgid "readerStyleSample"
+msgstr "Rain tapped the window as he closed the book and looked out. Streetlights blinked on one by one."
+
+msgid "readerStyleBack"
+msgstr "Done"
+
+msgid "readerCrown"
+msgstr "Crown"
+
+msgid "readerMenuTitle"
+msgstr "Menu"
+
+msgid "readerKeepAwake"
+msgstr "Awake"
+
 msgid "readerEstimateRemain"
 msgstr "About"
 
@@ -363,3 +405,9 @@ msgstr "Tap to switch char · 5+ chars then OK"
 
 msgid "urlUnknownBook"
 msgstr "Unknown book"
+
+
+
+
+
+

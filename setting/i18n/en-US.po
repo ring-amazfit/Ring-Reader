@@ -59,7 +59,7 @@ msgid "settingTutorialWatch"
 msgstr "• On watch: Calculator → type 123456 → = → bookshelf waits for transfer"
 
 msgid "settingFooter"
-msgstr "Ring Reader · v3.0.1 · Graphite / Amber"
+msgstr "Ring Reader · v3.2.0 · Graphite / Amber"
 
 msgid "settingWaiting"
 msgstr "Waiting to upload"

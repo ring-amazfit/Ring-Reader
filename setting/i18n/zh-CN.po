@@ -59,7 +59,7 @@ msgid "settingTutorialWatch"
 msgstr "• 手表端：计算器 → 123456按= → 书架等接收"
 
 msgid "settingFooter"
-msgstr "环间阅读器 · v3.0.1 · 石墨 / 琥珀"
+msgstr "环间阅读器 · v3.2.0 · 石墨 / 琥珀"
 
 msgid "settingWaiting"
 msgstr "等待上传"

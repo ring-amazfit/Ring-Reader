@@ -15,7 +15,7 @@
 </p>
 
 > [!NOTE]
-> Version `3.0.1` · App ID `1121557` · Requires Zepp OS 3.0 or later.
+> Version `3.2.0` · App ID `1121557` · Requires Zepp OS 3.0 or later.
 
 ## Features
 

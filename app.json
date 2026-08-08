@@ -5,8 +5,8 @@
     "appName": "计算器",
     "appType": "app",
     "version": {
-      "code": 4,
-      "name": "3.0.1"
+      "code": 5,
+      "name": "3.2.0"
     },
     "icon": "icon.png",
     "vender": "Anonymous",
@@ -31,7 +31,8 @@
           "pages": [
             "page/calculator",
             "page/bookshelf",
-            "page/reader"
+            "page/reader",
+            "page/style"
           ],
           "defaultPage": "page/calculator"
         },
@@ -55,7 +56,8 @@
           "pages": [
             "page/calculator",
             "page/bookshelf",
-            "page/reader"
+            "page/reader",
+            "page/style"
           ],
           "defaultPage": "page/calculator"
         },
@@ -79,7 +81,8 @@
           "pages": [
             "page/calculator",
             "page/bookshelf",
-            "page/reader"
+            "page/reader",
+            "page/style"
           ],
           "defaultPage": "page/calculator"
         },
@@ -102,7 +105,8 @@
           "pages": [
             "page/calculator",
             "page/bookshelf",
-            "page/reader"
+            "page/reader",
+            "page/style"
           ],
           "defaultPage": "page/calculator"
         },
@@ -126,7 +130,8 @@
           "pages": [
             "page/calculator",
             "page/bookshelf",
-            "page/reader"
+            "page/reader",
+            "page/style"
           ],
           "defaultPage": "page/calculator"
         },

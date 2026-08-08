@@ -15,9 +15,10 @@
  */
 
 import { createWidget, widget, align, event, prop, deleteWidget } from '@zos/ui'
-import { back } from '@zos/router'
+import { back, push } from '@zos/router'
 import { onDigitalCrown, KEY_HOME, KEY_UP, KEY_DOWN, offDigitalCrown, onKey, offKey } from '@zos/interaction'
 import { crownDirection, crownDebounceMs, keyDirection } from '../utils/crown'
+import { C, M, makeSlider, rowW, animFadeGroup, makeCloseButton } from '../utils/ui'
 import { localStorage } from '@zos/storage'
 import { setWakeUpRelaunch, setBrightness, getBrightness } from '@zos/display'
 import { Time, Battery } from '@zos/sensor'
@@ -42,22 +43,37 @@ var META_Y = 396          // 底部居中页码（点开菜单）
 var BAR_Y = 418
 var BAR_X = 140, BAR_W = 200
 // UI 仅使用相邻石墨色阶制造层次，不叠加黑色“假阴影”。
-var UI_PANEL = 0x181818
-var UI_PANEL_SOFT = 0x202020
-var UI_ACCENT = 0xD8924B      // 强调（琥珀）
-var UI_SUB = 0xA6A6A6          // 次要文本
-var UI_DANGER = 0xB05A52
-// 菜单配色（琥珀黄 + 石墨，参考 DS 布局但保持项目原色调）
-var MENU_PANEL = 0x202020      // 菜单面板背景（石墨）
-var MENU_BTN = 0x2A2A2A        // 常规动作按钮（平面石墨）
-var MENU_BTN_TOGGLE = 0x34302A // 状态按钮（微暖石墨）
-var MENU_BTN_FG = 0xF5F5F5     // 按钮文字（白）
-var MENU_ACCENT = 0xD8924B     // 菜单强调色（琥珀）
-var MENU_SUB = 0xA6A6A6        // 菜单次要文本
-var MENU_MUTED = 0x8A7A5A      // 菜单弱化文本（琥珀灰）
-var UI_TEXT = 0xF5F5F5         // 主文本
-var UI_MUTED = 0x666666        // 三级弱化文本
+var UI_PANEL_SOFT = C.cardAlt
+var UI_ACCENT = C.accent       // 强调（琥珀）
+var UI_SUB = C.sub             // 次要文本
+var UI_DANGER = C.danger
+var UI_TEXT = C.text           // 主文本
+var UI_MUTED = C.muted         // 三级弱化文本
 var STEP = 3072           // 渲染读取步长（增大以减少 readSync 次数）
+
+// 解码常见 HTML 实体：有些 TXT 书是从网页扒的，正文里带 &#8226;、&amp; 等字面实体。
+// 这是书文件的问题（不是渲染 bug），但阅读器兼容解码后两种书都能正常显示。
+function decodeEntities(s) {
+  if (!s || s.indexOf('&') < 0) return s
+  var out = ''
+  for (var i = 0; i < s.length; i++) {
+    if (s[i] === '&') {
+      var m = null
+      if (s[i + 1] === '#') {
+        var j = i + 2, num = ''
+        while (j < s.length && s[j] >= '0' && s[j] <= '9') { num += s[j]; j++ }
+        if (num && s[j] === ';') { out += String.fromCharCode(parseInt(num, 10)); i = j; continue }
+      } else {
+        var names = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '…', mdash: '—', ndash: '–', middot: '·' }
+        var k = i + 1, nm = ''
+        while (k < s.length && s[k] >= 'a' && s[k] <= 'z') { nm += s[k]; k++ }
+        if (nm && s[k] === ';' && names[nm] !== undefined) { out += names[nm]; i = k; continue }
+      }
+    }
+    out += s[i]
+  }
+  return out
+}
 var _readBuf = null
 var _readBufLen = 0
 
@@ -124,9 +140,17 @@ var autoCountdown = 0, autoCountdownTimer = null
 var keepAwake = false, keepAwakeTimer = null  // 屏幕常亮
 var timeSensor = null, battSensor = null, lastBatt = -1, charging = false
 var CROWN_DEBOUNCE = crownDebounceMs(), crownLastTs = 0
-var jump = { active: false, input: '', mode: 'page', widgets: [], _poolBuilt: false }
+// 表冠灵敏度 1~5 级：每翻一页所需的累计旋转角度（°）。
+// 级数越大越灵敏：1 级 = 90° 才翻一页，5 级 = 20° 就翻一页。
+var CROWN_LEVELS = [90, 80, 60, 40, 20]
+var crownAccumDeg = 0, crownAccumDir = 0    // 翻页模式表冠：同方向累计角度
+var jump = { active: false, input: '', mode: 'page', widgets: [], _poolBuilt: false, dispText: null, modeText: null }
+// 二级菜单返回标记：从主菜单进入书签/跳页/样式时置 true，
+// 关闭二级菜单后重新打开主菜单（“所有二级菜单返回都是一级菜单”）。
+// 行内“执行类”操作（跳页确认、点书签跳转）会先清除此标记，直接进入阅读。
+var _backToMenu = false
 var _longPressTimer = null  // 已废弃，书签改为菜单按钮
-var menu = { active: false, widgets: [], _poolBuilt: false, fontText: null, spacingText: null, brightText: null, themeText: null, autoText: null, scrollText: null, timerText: null, awakeTxt: null }
+var menu = { active: false, widgets: [], _poolBuilt: false, fontText: null, spacingText: null, brightText: null, themeText: null, autoText: null, autoBtnTxt: null, scrollText: null, timerText: null, awakeTxt: null }
 
 var loadingPulse = null
 function clearLoading() {
@@ -136,9 +160,9 @@ function clearLoading() {
 }
 function showLoading() {
   clearLoading()
-  loadingWidgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 220 }))
-  loadingWidgets.push(createWidget(widget.FILL_RECT, { x: 90, y: 184, w: W - 180, h: 86, radius: 18, color: UI_PANEL_SOFT }))
-  loadingWidgets.push(createWidget(widget.TEXT, { x: 70, y: 214, w: W - 140, h: 32, text: getText('readerLoading'), text_size: 18, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  loadingWidgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: C.bg, alpha: 255 }))
+  loadingWidgets.push(createWidget(widget.FILL_RECT, { x: 90, y: 184, w: W - 180, h: 86, radius: M.cardR, color: C.cardAlt }))
+  loadingWidgets.push(createWidget(widget.TEXT, { x: 70, y: 214, w: W - 140, h: 32, text: getText('readerLoading'), text_size: 18, color: C.accent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   // 琥珀脉冲：加载文字呼吸效果
   var pulseUp = true, pulseAlpha = 180
   var pulseTarget = loadingWidgets[loadingWidgets.length - 1]
@@ -390,7 +414,7 @@ function battStr() {
   } catch (e) { return '' }
 }
 function topText() {
-  var s = nowHHMM() + '  ' + percent() + '%  ' + battStr()
+  var s = nowHHMM() + ' · ' + percent() + '% · ' + battStr()
   return s
 }
 
@@ -554,7 +578,7 @@ function drawPage() {
   curInfo = renderPage(curStart, cfg)
   var lines = curInfo.lines, n = lineWidgets.length
   for (var i = 0; i < n; i++) {
-    var txt = i < lines.length ? (lines[i] || '') : ''
+    var txt = i < lines.length ? decodeEntities(lines[i] || '') : ''
     try { lineWidgets[i].setProperty(prop.TEXT, txt) } catch (e) {}
   }
   updateMeta()
@@ -592,7 +616,7 @@ function drawPageFromCache(cache) {
   curStart = cache.start
   var lines = cache.lines, n = lineWidgets.length
   for (var i = 0; i < n; i++) {
-    var txt = i < lines.length ? (lines[i] || '') : ''
+    var txt = i < lines.length ? decodeEntities(lines[i] || '') : ''
     try { lineWidgets[i].setProperty(prop.TEXT, txt) } catch (e) {}
   }
   updateMeta()
@@ -634,30 +658,25 @@ function loadProgress(bid) {
   } catch (e) { return null }
 }
 
-function anyPanel() { return jump.active || menu.active || bm.active }
-
-// ── 动画辅助：对控件列表做淡入/淡出 ──
-function animFadeGroup(widgets, fromA, toA, steps, delay, onDone) {
-  if (!widgets || widgets.length === 0) { if (onDone) onDone(); return }
-  var cur = fromA, total = toA - fromA, step = Math.round(total / steps), n = steps
-  function tick() {
-    cur += step; n--
-    if (n <= 0) cur = toA
-    for (var i = 0; i < widgets.length; i++) {
-      if (widgets[i]) try { widgets[i].setProperty(prop.MORE, { alpha: cur }) } catch (e) {}
+// 从 reading_progress 恢复阅读设置：build() 首载与 onShow() 从样式页返回共用，
+// 避免两份重复的“逐项赋值 + 变更检测”。返回 true 表示有设置发生实质变化。
+function applySavedConfig(saved) {
+  var changed = false
+  if (!saved) return changed
+  if (saved.fontSize) {
+    for (var i = 0; i < FONT_SIZES.length; i++) {
+      if (FONT_SIZES[i] === saved.fontSize && fontIdx !== i) { fontIdx = i; changed = true }
     }
-    if (n > 0) setTimeout(tick, delay)
-    else if (onDone) setTimeout(onDone, 0)
   }
-  tick()
-}
-// 按钮按压反馈（浅闪）
-function btnFlash(bgW, origColor) {
-  if (!bgW) return
-  try { bgW.setProperty(prop.MORE, { color: 0x4A4A4A }) } catch (e) {}
-  setTimeout(function () { try { bgW.setProperty(prop.MORE, { color: origColor || 0x2A2A2A }) } catch (e) {} }, 30)
+  if (saved.spacingIdx !== undefined && saved.spacingIdx >= 0 && saved.spacingIdx < SPACINGS.length && spacingIdx !== saved.spacingIdx) { spacingIdx = saved.spacingIdx; changed = true }
+  if (saved.brightVal !== undefined && (saved.brightVal === -1 || (saved.brightVal >= 5 && saved.brightVal <= 100)) && brightVal !== saved.brightVal) { brightVal = saved.brightVal; changed = true }
+  if (saved.themeIdx !== undefined && saved.themeIdx >= 0 && saved.themeIdx < THEMES.length && themeIdx !== saved.themeIdx) { themeIdx = saved.themeIdx; changed = true }
+  if (saved.autoIdx !== undefined && saved.autoIdx >= 0 && saved.autoIdx < AUTO_SECS.length && autoIdx !== saved.autoIdx) { autoIdx = saved.autoIdx; changed = true }
+  return changed
 }
 
+function anyPanel() { return jump.active || menu.active || bm.active }
+// animFadeGroup 已统一到 utils/ui.js
 // 翻页频繁，进度写入做防抖（1s 合并一次），省电；离开/熄屏前会即时落盘
 var saveTimer = null
 function saveProgressSoon() {
@@ -872,6 +891,7 @@ function changeAuto(delta) {
   autoIdx = (autoIdx + delta + AUTO_SECS.length) % AUTO_SECS.length
   startAuto()
   if (menu.autoText) { try { menu.autoText.setProperty(prop.TEXT, AUTO_LABELS[autoIdx]) } catch (e) {} }
+  if (menu.autoBtnTxt) { try { menu.autoBtnTxt.set(getText(AUTO_LABELS[autoIdx])) } catch (e) {} }
   saveProgress()
 }
 
@@ -899,8 +919,8 @@ function toast(text) {
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
   for (var i = 0; i < toastWidgets.length; i++) { try { deleteWidget(toastWidgets[i]) } catch (e) {} }
   toastWidgets = []
-  toastWidgets.push(createWidget(widget.FILL_RECT, { x: 118, y: 206, w: 244, h: 60, radius: 16, color: UI_PANEL_SOFT, alpha: 0 }))
-  toastWidgets.push(createWidget(widget.TEXT, { x: 130, y: 206, w: 220, h: 60, text: text, text_size: 16, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0 }))
+  toastWidgets.push(createWidget(widget.FILL_RECT, { x: 110, y: 204, w: 260, h: 62, radius: 20, color: C.cardAlt, alpha: 0 }))
+  toastWidgets.push(createWidget(widget.TEXT, { x: 124, y: 204, w: 232, h: 62, text: text, text_size: M.tsRow, color: C.text, align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0 }))
   animFadeGroup(toastWidgets, 0, 255, 6, 35)
   var shownWidgets = toastWidgets
   toastTimer = setTimeout(function () {
@@ -940,6 +960,8 @@ function closeBookmarks() {
   for (var i = 0; i < bm.staticWidgets.length; i++) { try { deleteWidget(bm.staticWidgets[i]) } catch (e) {} }
   for (var i = 0; i < bm.rowWidgets.length; i++) { try { deleteWidget(bm.rowWidgets[i]) } catch (e) {} }
   bm.staticWidgets = []; bm.rowWidgets = []; bm.active = false; bm.page = 0; bm._lastRender = 0
+  // 二级菜单返回一级菜单
+  if (_backToMenu) { _backToMenu = false; openMenu() }
 }
 function renderBookmarkPage() {
   // 节流：避免表冠快速旋转时频繁重建控件
@@ -955,21 +977,30 @@ function renderBookmarkPage() {
   if (bm.page >= totalPages) bm.page = totalPages - 1
   if (bm.page < 0) bm.page = 0
 
-  var startY = 120, rowH = 42
+  // 独立胶囊行，宽度按圆屏可用宽自适应（与菜单同一套语言）
+  var startY = 108, rowH = 44, rowGap = 8
   var start = bm.page * BM_PER_PAGE
   var end = Math.min(list.length, start + BM_PER_PAGE)
   var n = end - start
 
   for (var i = 0; i < n; i++) {
     var it = list[list.length - 1 - start - i]
-    var y = startY + i * rowH
-    bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: 80, y: y, w: 320, h: rowH - 6, radius: 10, color: UI_PANEL }))
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 94, y: y, w: 230, h: rowH - 6, text: getText('readerPage') + it.page + ' · ' + it.pct + '%', text_size: 14, color: UI_TEXT, align_v: align.CENTER_V }))
-    var jt = createWidget(widget.FILL_RECT, { x: 80, y: y, w: 264, h: rowH - 6, radius: 8, color: 0x000000, alpha: 0 })
-    jt.addEventListener(event.CLICK_DOWN, (function (off) { return function () { closeBookmarks(); curStart = off; backStack = []; refreshDisplay(); saveProgress() } })(it.offset))
+    var y = startY + i * (rowH + rowGap)
+    var bw = Math.min(352, rowW(y, rowH))
+    var bx = Math.round((W - bw) / 2)
+    var lx = bx + M.padX, rx = bx + bw - M.padX
+    bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: bx, y: y, w: bw, h: rowH, radius: Math.round(rowH / 2), color: C.card }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: lx, y: y, w: 150, h: rowH, text: getText('readerPage') + it.page, text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: rx - 84, y: y, w: 48, h: rowH, text: it.pct + '%', text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    var jt = createWidget(widget.FILL_RECT, { x: bx, y: y, w: bw - 52, h: rowH, radius: Math.round(rowH / 2), color: 0x000000, alpha: 0 })
+    // 点书签行 = 执行跳转，直接进入阅读（不再回菜单）
+    jt.addEventListener(event.CLICK_DOWN, (function (off) { return function () { _backToMenu = false; closeBookmarks(); curStart = off; backStack = []; refreshDisplay(); saveProgress() } })(it.offset))
     bm.rowWidgets.push(jt)
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 350, y: y, w: 44, h: rowH - 6, text: '×', text_size: 20, color: 0xB05A52, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-    var dt = createWidget(widget.FILL_RECT, { x: 346, y: y, w: 52, h: rowH - 6, color: 0x000000, alpha: 0 })
+    // 删除：暗红圆形 chip（视觉 28，热区 44）
+    var chipX = rx - 28, chipY = y + Math.round((rowH - 28) / 2)
+    bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: chipX, y: chipY, w: 28, h: 28, radius: 14, color: C.dangerBg }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: chipX, y: chipY, w: 28, h: 28, text: '×', text_size: 16, color: C.danger, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var dt = createWidget(widget.FILL_RECT, { x: chipX - 8, y: y, w: 44, h: rowH, radius: 22, color: 0x000000, alpha: 0 })
     dt.addEventListener(event.CLICK_DOWN, (function (ts) { return function () {
       var l = bookmarksOf(); var nl = []
       for (var k = 0; k < l.length; k++) if (l[k].ts !== ts) nl.push(l[k])
@@ -978,10 +1009,10 @@ function renderBookmarkPage() {
     bm.rowWidgets.push(dt)
   }
 
-  if (list.length === 0) bm.rowWidgets.push(createWidget(widget.TEXT, { x: 90, y: 170, w: 300, h: 24, text: getText('readerNoBookmarks'), text_size: 14, color: UI_MUTED, align_h: align.CENTER_H }))
+  if (list.length === 0) bm.rowWidgets.push(createWidget(widget.TEXT, { x: 90, y: 210, w: 300, h: 24, text: getText('readerNoBookmarks'), text_size: M.tsVal, color: C.muted, align_h: align.CENTER_H }))
 
   if (totalPages > 1) {
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 170, y: 344, w: 140, h: 20, text: (bm.page + 1) + '/' + totalPages + '  ' + getText('readerCrownPaging'), text_size: 11, color: UI_MUTED, align_h: align.CENTER_H }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 150, y: 388, w: 180, h: 18, text: (bm.page + 1) + '/' + totalPages + '  ' + getText('readerCrownPaging'), text_size: M.tsMeta, color: C.muted, align_h: align.CENTER_H }))
   }
 }
 
@@ -989,35 +1020,25 @@ function openBookmarks() {
   if (bm.active) return
   bm.active = true; bm.staticWidgets = []; bm.rowWidgets = []; bm.page = 0
 
-  // 背景（吸收点击，防止穿透）
-  var bg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 215 })
+  // 整屏：背景 + 标题 + 琥珀胶囊添加按钮 + 卡片列表
+  var bg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: C.bg })
   try { bg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
   bg.addEventListener(event.CLICK_DOWN, function () {})
   bm.staticWidgets.push(bg)
-  bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 72, y: 32, w: 336, h: 376, radius: 20, color: MENU_PANEL }))
-  try { bm.staticWidgets[1].setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
-  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 90, y: 44, w: 300, h: 24, text: getText('readerBookmarks'), text_size: 17, color: UI_ACCENT, align_h: align.CENTER_H }))
-  // 加书签按钮
-  bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 150, y: 72, w: 180, h: 40, radius: 10, color: MENU_BTN_TOGGLE }))
-  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 150, y: 70, w: 180, h: 40, text: getText('readerAddBookmark'), text_size: 14, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var addT = createWidget(widget.FILL_RECT, { x: 150, y: 70, w: 180, h: 40, radius: 10, color: 0x000000, alpha: 0 })
+  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 0, y: 22, w: W, h: 26, text: getText('readerBookmarks'), text_size: M.tsTitle, color: C.text, align_h: align.CENTER_H }))
+  // 关闭：底部居中圆钮（共用组件）
+  makeCloseButton(UIDEPS, function (w) { bm.staticWidgets.push(w) }, H - 46, function () { closeBookmarks() }, W)
+  // 添加书签（琥珀胶囊）
+  bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 140, y: 52, w: 200, h: M.btnH, radius: Math.round(M.btnH / 2), color: C.accent }))
+  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 140, y: 52, w: 200, h: M.btnH, text: getText('readerAddBookmark'), text_size: M.tsRow, color: C.onAccent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var addT = createWidget(widget.FILL_RECT, { x: 136, y: 48, w: 208, h: M.btnH + 8, radius: Math.round(M.btnH / 2), color: 0x000000, alpha: 0 })
   addT.addEventListener(event.CLICK_DOWN, function () { addBookmark(); renderBookmarkPage() })
   bm.staticWidgets.push(addT)
-  // 关闭按钮
-  bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 170, y: 364, w: 140, h: 38, radius: 10, color: MENU_BTN }))
-  bm.staticWidgets.push(createWidget(widget.TEXT, { x: 170, y: 364, w: 140, h: 38, text: getText('readerClose'), text_size: 14, color: UI_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var ct = createWidget(widget.FILL_RECT, { x: 170, y: 364, w: 140, h: 38, radius: 10, color: 0x000000, alpha: 0 })
-  ct.addEventListener(event.CLICK_DOWN, function () { closeBookmarks() })
-  bm.staticWidgets.push(ct)
 
   renderBookmarkPage()
 
-  // 淡入动画：遮罩先入，面板稍后
-  if (bm.staticWidgets.length > 0) {
-    setTimeout(function () { if (bm.active) animFadeGroup([bm.staticWidgets[0]], 0, 215, 8, 30) }, 10)
-    var panelRef = bm.staticWidgets[1]
-    setTimeout(function () { if (bm.active) animFadeGroup([panelRef], 0, 255, 6, 30) }, 60)
-  }
+  // 淡入背景
+  setTimeout(function () { if (bm.active) animFadeGroup([bm.staticWidgets[0]], 0, 255, 8, 30) }, 10)
 }
 
 // ── 菜单（底部页码点出）──
@@ -1036,97 +1057,181 @@ function destroyMenuPool() {
   for (var i = 0; i < menu.widgets.length; i++) { try { deleteWidget(menu.widgets[i]) } catch (e) {} }
   menu.widgets = []
   menu._poolBuilt = false
-  menu.fontText = menu.spacingText = menu.brightText = menu.themeText = menu.autoText = menu.scrollText = menu.timerText = menu.remainText = null
+  menu.fontText = menu.spacingText = menu.brightText = menu.themeText = menu.autoText = menu.autoBtnTxt = menu.scrollText = menu.timerText = menu.remainText = null
   menu.awakeTxt = null
 }
 
 function mAdd(w) { menu.widgets.push(w); return w }
-var MPX = 72, MPW = 336
 
-// 关键：透明触摸层必须最后创建（盖在文字之上），否则 TEXT 会挡住点击。
-function menuBtn(x, y, w, h, label, bg, fg, ts, onClick) {
-  mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 10, color: bg }))
-  mAdd(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: label, text_size: ts, color: fg, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var t = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: 10, color: 0x000000, alpha: 0 }))
-  t.addEventListener(event.CLICK_DOWN, function () {
-    btnFlash(menu.widgets[menu.widgets.length - 3], bg)
-    onClick()
-  })
-  return t
+// ── 菜单几何：独立胶囊行（不再是一整块灰卡片切分隔线）──
+// 每行是一颗独立的圆角胶囊，宽度按所在 y 的圆屏可用宽度自适应（上限 352），
+// 于是列表天然形成「中间宽、底部收窄」的桶形轮廓，贴合圆屏而不是硬塞方卡。
+var MROW = 40                      // 常规行高
+var MPITCH = 46                    // 行间距（行高 + 6）
+var MCAP = M.maxW                  // 行宽上限（统一令牌）
+var UIDEPS = { createWidget: createWidget, widget: widget, event: event, prop: prop }
+
+function menuRowGeo(y, h) {
+  var w = Math.min(MCAP, rowW(y, h))
+  return { x: Math.round((W - w) / 2), w: w }
 }
 
-function menuStepper(y, label, value, onMinus, onPlus) {
-  mAdd(createWidget(widget.FILL_RECT, { x: MPX + 24, y: y, w: 240, h: 40, radius: 12, color: MENU_PANEL }))
-  mAdd(createWidget(widget.TEXT, { x: MPX + 36, y: y, w: 56, h: 40, text: label, text_size: 15, color: MENU_SUB, align_v: align.CENTER_V }))
-  menuBtn(MPX + 98, y, 50, 40, '−', MENU_BTN, 0xFFFFFF, 22, onMinus)
-  var vt = mAdd(createWidget(widget.TEXT, { x: MPX + 150, y: y, w: 56, h: 40, text: value, text_size: 18, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  menuBtn(MPX + 208, y, 50, 40, '＋', MENU_BTN, 0xFFFFFF, 22, onPlus)
-  return vt
+/**
+ * 独立胶囊行：整行一颗胶囊，左标签 + 右控件。
+ * type:
+ *   'nav'   右侧 ›，整行可点
+ *   'value' 右侧琥珀值文本，整行可点（循环切换）
+ * 返回 value 行的 { set(text) } 控制器。
+ */
+function menuRow(y, label, type, opt) {
+  var g = menuRowGeo(y, MROW)
+  var lx = g.x + M.padX, rx = g.x + g.w - M.padX
+  mAdd(createWidget(widget.FILL_RECT, { x: g.x, y: y, w: g.w, h: MROW, radius: Math.round(MROW / 2), color: C.card }))
+  mAdd(createWidget(widget.TEXT, { x: lx, y: y, w: 150, h: MROW, text: label, text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
+  var ctrl = null
+  if (type === 'nav') {
+    mAdd(createWidget(widget.TEXT, { x: rx - 18, y: y, w: 18, h: MROW, text: '>', text_size: 19, color: C.muted, align_h: align.RIGHT, align_v: align.CENTER_V }))
+  } else {
+    var vt = mAdd(createWidget(widget.TEXT, { x: rx - 160, y: y, w: 160, h: MROW, text: opt.text(), text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    ctrl = { set: function (t) { try { vt.setProperty(prop.TEXT, t) } catch (e) {} } }
+  }
+  var t = mAdd(createWidget(widget.FILL_RECT, { x: g.x, y: y, w: g.w, h: MROW, radius: Math.round(MROW / 2), color: 0x000000, alpha: 0 }))
+  t.addEventListener(event.CLICK_DOWN, function () { opt.onClick() })
+  return ctrl
+}
+
+/**
+ * 开关组：三个并排的方形 chip（全屏 / 滚动 / 常亮）。
+ * 开启态 = 暖色底 + 琥珀图标文字，关闭态 = 深底 + 灰字。
+ * 比三行「文字 + 小开关」信息密度高得多，也不再依赖被拉伸的开关图。
+ */
+function menuToggleChips(y) {
+  var g = menuRowGeo(y, MROW)
+  var n = 3, gap = 8
+  var cw = Math.floor((g.w - gap * (n - 1)) / n)
+  var defs = [
+    { label: getText('readerFullscreen'), get: function () { return fullscreen }, act: function () { return toggleFullscreen() } },
+    { label: getText('readerScrollMode').trim(), get: function () { return scrollMode }, act: function () { return toggleScroll() } },
+    { label: getText('readerKeepAwake'), get: function () { return keepAwake }, act: function () { return toggleKeepAwake() } }
+  ]
+  for (var i = 0; i < n; i++) {
+    var x = g.x + i * (cw + gap)
+    var on = defs[i].get()
+    var bg = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: cw, h: MROW, radius: 14, color: on ? C.cardOn : C.card }))
+    var tx = mAdd(createWidget(widget.TEXT, { x: x, y: y, w: cw, h: MROW, text: defs[i].label, text_size: M.tsVal, color: on ? C.accentSoft : C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var touch = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: cw, h: MROW, radius: 14, color: 0x000000, alpha: 0 }))
+    touch.addEventListener(event.CLICK_DOWN, (function (d, bgW, txW) {
+      return function () {
+        d.act()
+        var nowOn = d.get()
+        try { bgW.setProperty(prop.MORE, { color: nowOn ? C.cardOn : C.card }) } catch (e) {}
+        try { txW.setProperty(prop.MORE, { color: nowOn ? C.accentSoft : C.sub }) } catch (e) {}
+      }
+    })(defs[i], bg, tx))
+  }
+}
+
+// 进度环：沿屏幕边缘画一圈 ARC —— 圆屏上最自然的进度表达，不占中间版面。
+// 固件不支持 ARC 时降级为顶部一条细横条，保证进度始终可见。
+function menuProgressRing() {
+  var pct = percent()
+  if (widget.ARC !== undefined) {
+    var ok = false
+    try {
+      mAdd(createWidget(widget.ARC, {
+        x: 5, y: 5, w: W - 10, h: H - 10,
+        start_angle: 0, end_angle: 360, line_width: 5, color: C.cardAlt
+      }))
+      var deg = Math.round(360 * pct / 100)
+      if (deg < 4) deg = 4
+      mAdd(createWidget(widget.ARC, {
+        x: 5, y: 5, w: W - 10, h: H - 10,
+        start_angle: 0, end_angle: deg, line_width: 5, color: C.accent
+      }))
+      ok = true
+    } catch (e) {}
+    if (ok) return
+  }
+  // 降级：顶部细横条
+  var bw = 200, bx = Math.round((W - bw) / 2), by = 22
+  mAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: bw, h: 4, radius: 2, color: C.cardAlt }))
+  mAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: Math.max(4, Math.round(bw * pct / 100)), h: 4, radius: 2, color: C.accent }))
 }
 
 function openMenu() {
   if (menu.active || jump.active || bm.active) return
   menu.active = true
 
-  // 直接弹出（无动画、无池化）：参考 ring-reader-DS 菜单样式（紫调面板）
   menu.widgets = []
 
-  mAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 210 }))
+  mAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: C.bg }))
   var closeBg = mAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 0 }))
   closeBg.addEventListener(event.CLICK_DOWN, function () { closeMenu() })
 
-  // 面板背景（紫黑）
-  var panelBg = mAdd(createWidget(widget.FILL_RECT, { x: MPX, y: 32, w: MPW, h: 384, radius: 18, color: MENU_PANEL }))
-  panelBg.addEventListener(event.CLICK_DOWN, function () {})
+  // 边缘进度环（替代原来那条挤在文字里的百分比）
+  menuProgressRing()
 
-  mAdd(createWidget(widget.TEXT, {
-    x: MPX, y: 40, w: MPW, h: 18,
-    text: displayPage() + ' / ~' + estTotal + '  ' + percent() + '%  ' + nowHHMM(),
-    text_size: 13, color: 0xCFCFCF, align_h: align.CENTER_H
-  }))
-  menu.timerText = mAdd(createWidget(widget.TEXT, {
-    x: MPX, y: 60, w: MPW, h: 16,
-    text: getText('readerSessionTime') + fmtMin(currentReadSec() - baseReadSec) + ' · ' + getText('readerTotalTime') + fmtMin(currentReadSec()),
-    text_size: 10, color: 0x8A8A8A, align_h: align.CENTER_H
-  }))
-  menu.remainText = mAdd(createWidget(widget.TEXT, {
-    x: MPX, y: 76, w: MPW, h: 12, text: estRemaining() || '',
-    text_size: 9, color: MENU_MUTED, align_h: align.CENTER_H
-  }))
+  // 头部：大号百分比作为视觉锚点，页码/时间做次要行
+  mAdd(createWidget(widget.TEXT, { x: 90, y: 28, w: W - 180, h: 34, text: percent() + '%', text_size: 30, color: C.accent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  mAdd(createWidget(widget.TEXT, { x: 60, y: 60, w: W - 120, h: 16, text: displayPage() + ' / ~' + estTotal + '   ' + nowHHMM(), text_size: M.tsMeta, color: C.sub, align_h: align.CENTER_H }))
+  menu.timerText = mAdd(createWidget(widget.TEXT, { x: 60, y: 74, w: W - 120, h: 14, text: getText('readerSessionTime') + fmtMin(currentReadSec() - baseReadSec) + ' · ' + getText('readerTotalTime') + fmtMin(currentReadSec()), text_size: M.tsMeta, color: C.muted, align_h: align.CENTER_H }))
 
-  // 字号
-  mAdd(createWidget(widget.TEXT, { x: MPX + 36, y: 92, w: 56, h: 36, text: getText('readerFont'), text_size: 14, color: MENU_SUB, align_v: align.CENTER_V }))
-  menuBtn(MPX + 98, 92, 48, 36, 'A-', MENU_BTN, 0xFFFFFF, 17, function () { changeFont(-1) })
-  menu.fontText = mAdd(createWidget(widget.TEXT, { x: MPX + 148, y: 92, w: 56, h: 36, text: cfgNow().label, text_size: 17, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  menuBtn(MPX + 206, 92, 48, 36, 'A+', MENU_BTN, 0xFFFFFF, 17, function () { changeFont(1) })
+  // 关闭按钮：底部居中圆钮（共用组件）
+  makeCloseButton(UIDEPS, mAdd, H - 46, function () { closeMenu() }, W)
 
-  menu.spacingText = menuStepper(134, getText('readerSpacing'), getText(SPACING_LABELS[spacingIdx]), function () { changeSpacing(-1) }, function () { changeSpacing(1) })
-  menu.brightText = menuStepper(176, getText('readerBrightness'), brightVal < 0 ? getText('readerBrightnessSystem') : brightVal + '%', function () { changeBright(-1) }, function () { changeBright(1) })
-  menu.themeText = menuStepper(218, getText('readerTheme'), getText(theme().nameKey), function () { changeTheme(-1) }, function () { changeTheme(1) })
-  menu.autoText = menuStepper(260, getText('readerAuto'), getText(AUTO_LABELS[autoIdx]), function () { changeAuto(-1) }, function () { changeAuto(1) })
+  // 行 0：三联开关 chip
+  var y0 = 92
+  menuToggleChips(y0)
 
-  // 底部6按钮（2行3列）
-  var btnW = 98, btnH = 38, btnGap = 8
-  var btnY1 = 306, btnY2 = btnY1 + btnH + btnGap
-  var btnX1 = MPX + 12, btnX2 = btnX1 + btnW + btnGap, btnX3 = btnX2 + btnW + btnGap
+  // 行 1：表冠灵敏度（label + 自绘滑条 + 值），单独一颗高胶囊
+  var yCrown = y0 + MPITCH
+  var crownH = 44
+  var gc = menuRowGeo(yCrown, crownH)
+  mAdd(createWidget(widget.FILL_RECT, { x: gc.x, y: yCrown, w: gc.w, h: crownH, radius: Math.round(crownH / 2), color: C.card }))
+  mAdd(createWidget(widget.TEXT, { x: gc.x + M.padX, y: yCrown, w: 70, h: crownH, text: getText('readerCrown'), text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
+  var crownStepVal = 3
+  try {
+    var cv = parseInt(localStorage.getItem('crown_level') || '', 10)
+    if (cv >= 1 && cv <= 5) crownStepVal = cv
+    else {
+      var co = parseInt(localStorage.getItem('crown_step') || '', 10)
+      if (co >= 1 && co <= 3) crownStepVal = co
+    }
+  } catch (e) {}
+  var crownValText = mAdd(createWidget(widget.TEXT, { x: gc.x + gc.w - M.padX - 24, y: yCrown, w: 24, h: crownH, text: String(crownStepVal), text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
+  var slX = gc.x + M.padX + 80
+  var slW = (gc.x + gc.w - M.padX - 32) - slX
+  // onChange 实时更新显示；onCommit（松手）才写存储，避免拖动时高频落盘
+  makeSlider(UIDEPS, mAdd, slX, yCrown + Math.round((crownH - M.sliderKnob) / 2), slW, 1, 5, crownStepVal,
+    function (v) { try { crownValText.setProperty(prop.TEXT, String(v)) } catch (e) {} },
+    function (v) { try { localStorage.setItem('crown_level', String(v)) } catch (e) {} }
+  )
 
-  // 第一行：书签 / 全屏 / 滚动
-  menuBtn(btnX1, btnY1, btnW, btnH, getText('readerBookmarks'), MENU_BTN_TOGGLE, MENU_BTN_FG, 15, function () { closeMenu(); openBookmarks() })
-  menuBtn(btnX2, btnY1, btnW, btnH, getText('readerFullscreen'), MENU_BTN_TOGGLE, MENU_BTN_FG, 15, function () { toggleFullscreen() })
-  mAdd(createWidget(widget.FILL_RECT, { x: btnX3, y: btnY1, w: btnW, h: btnH, radius: 10, color: MENU_BTN_TOGGLE }))
-  menu.scrollText = mAdd(createWidget(widget.TEXT, { x: btnX3, y: btnY1, w: btnW, h: btnH, text: getText('readerScrollMode') + (scrollMode ? getText('readerScrollOn') : getText('readerScrollOff')), text_size: 14, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var scT = mAdd(createWidget(widget.FILL_RECT, { x: btnX3, y: btnY1, w: btnW, h: btnH, radius: 10, color: 0x000000, alpha: 0 }))
-  scT.addEventListener(event.CLICK_DOWN, function () { toggleScroll() })
-
-  // 第二行：跳页 / 常亮 / 关闭
-  menuBtn(btnX1, btnY2, btnW, btnH, getText('readerJump'), MENU_BTN, 0xEEEEEE, 15, function () { closeMenu(); openJumpPanel() })
-  mAdd(createWidget(widget.FILL_RECT, { x: btnX2, y: btnY2, w: btnW, h: btnH, radius: 10, color: MENU_BTN }))
-  menu.awakeTxt = mAdd(createWidget(widget.TEXT, { x: btnX2, y: btnY2, w: btnW, h: btnH, text: keepAwake ? getText('readerKeepAwakeOn') : getText('readerKeepAwakeOff'), text_size: 13, color: MENU_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var awakeTouch = mAdd(createWidget(widget.FILL_RECT, { x: btnX2, y: btnY2, w: btnW, h: btnH, radius: 10, color: 0x000000, alpha: 0 }))
-  awakeTouch.addEventListener(event.CLICK_DOWN, function () { toggleKeepAwake(); try { menu.awakeTxt.setProperty(prop.TEXT, keepAwake ? getText('readerKeepAwakeOn') : getText('readerKeepAwakeOff')) } catch (e) {} })
-  menuBtn(btnX3, btnY2, btnW, btnH, getText('readerClose'), 0x2C2C2C, MENU_SUB, 15, function () { closeMenu() })
+  // 行 2~5：自动翻页（值）/ 书签 / 跳页 / 样式（导航）
+  var yA = yCrown + 52
+  menu.autoBtnTxt = menuRow(yA, getText('readerAuto'), 'value', { text: function () { return getText(AUTO_LABELS[autoIdx]) }, onClick: function () { changeAuto(1) } })
+  menuRow(yA + MPITCH, getText('readerBookmarks'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openBookmarks() } })
+  menuRow(yA + MPITCH * 2, getText('readerJump'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openJumpPanel() } })
+  menuRow(yA + MPITCH * 3, getText('readerStyle'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openStylePage() } })
 
   menu._poolBuilt = false
+}
+
+// 表冠灵敏度：菜单滑动条写入 crown_level（1~5 级），返回每页累计角度阈值。
+// 兼容旧版 crown_step（1~3）直接映射为 1~3 级。默认 3 级 = 60°。
+function effectiveCrownStep() {
+  try {
+    var v = parseInt(localStorage.getItem('crown_level') || '', 10)
+    if (v >= 1 && v <= 5) return CROWN_LEVELS[v - 1]
+    var old = parseInt(localStorage.getItem('crown_step') || '', 10)
+    if (old >= 1 && old <= 3) return CROWN_LEVELS[old - 1]
+  } catch (e) {}
+  return CROWN_LEVELS[2]
+}
+
+// 打开阅读样式页（独立页面，非弹窗）。样式页返回（onShow）后重新打开主菜单。
+function openStylePage() {
+  try { push({ url: 'page/style', params: JSON.stringify({ bookId: String(bookId) }) }) } catch (e) {}
 }
 
 // ── 跳页数字键盘 ──
@@ -1134,22 +1239,10 @@ function closeJumpPanel() {
   if (!jump.active) return
   jump.active = false
   jump.input = ''
-  // 池化：不 deleteWidget，只淡出，下次 openJumpPanel 零延迟复用
-  if (jump._poolBuilt && jump.widgets.length > 0) {
-    animFadeGroup(jump.widgets, 255, 0, 6, 25, function () {
-      for (var i = 0; i < jump.widgets.length; i++) {
-        try { jump.widgets[i].setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
-      }
-      // 重置显示为占位符
-      if (jump.widgets[3]) { try { jump.widgets[3].setProperty(prop.TEXT, '___') } catch (e) {} }
-      // 重置模式标题
-      if (jump.widgets[5]) { try { jump.widgets[5].setProperty(prop.TEXT, getText('readerJumpSwitchHint')) } catch (e) {} }
-      jump.mode = 'page'
-    })
-  } else {
-    for (var i = 0; i < jump.widgets.length; i++) { try { deleteWidget(jump.widgets[i]) } catch (e) {} }
-    jump.widgets = []
-  }
+  // 直接销毁（无池化、无动画）：每次 openJumpPanel 重建，状态干净。
+  // 池化淡出后透明 touch 层仍留在屏幕上拦截点击，
+  // 会导致跳完页后“卡住”（点击无响应）或误触发跳页（点到隐藏数字键）。
+  destroyJumpPool()
 }
 
 // 销毁跳页池（用于 onDestroy 等需要彻底清理的场景）
@@ -1157,11 +1250,12 @@ function destroyJumpPool() {
   for (var i = 0; i < jump.widgets.length; i++) { try { deleteWidget(jump.widgets[i]) } catch (e) {} }
   jump.widgets = []
   jump._poolBuilt = false
+  jump.dispText = null
+  jump.modeText = null
 }
 
 function updateJumpDisplay() {
-  var disp = jump.widgets[3]
-  if (disp) { try { disp.setProperty(prop.TEXT, jump.input || '___') } catch (e) {} }
+  if (jump.dispText) { try { jump.dispText.setProperty(prop.TEXT, jump.input || '—') } catch (e) {} }
 }
 
 function addJumpDigit(d) { if (jump.input.length < 6) { jump.input += d; updateJumpDisplay() } }
@@ -1180,6 +1274,7 @@ function jumpConfirm() {
     if (val > estTotal) val = estTotal
     target = (val - 1) * bpp
   }
+  _backToMenu = false   // 跳页确认 = 执行动作，直接进入阅读
   closeJumpPanel()
   if (target > source.size - 1) target = Math.max(0, source.size - 1)
   curStart = snapToLineStart(target)
@@ -1189,93 +1284,81 @@ function jumpConfirm() {
   saveProgress()
 }
 
+function jAdd(w) { jump.widgets.push(w); return w }
+
 function openJumpPanel() {
   if (jump.active) return
+  // 防御：清理任何残留控件（正常关闭会销毁，但保险起见）
+  if (jump.widgets.length > 0) destroyJumpPool()
   jump.active = true
   jump.input = ''
   jump.mode = 'page'
+  jump.widgets = []
 
-  if (!jump._poolBuilt) {
-    // ── 首次：创建所有控件（alpha=0，由动画渐入）──
-    jump.widgets = []
+  // 整屏键盘：旧的 220 宽小面板里键只有 56×40，手指按不准。
+  // 现在按 3 列 × 4 行、键 68×52 排布，全部落在圆屏安全区内。
+  jAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: C.bg }))
 
-    var px = 140, py = 96, pw = 200, ph = 300
-    var padX = px + 18, padY0 = py + 96
-    var bW = 50, bH = 34, bGap = 6
+  // 顶部：模式标签（可点切换）+ 大号输入值 + 右上关闭
+  var modeTitle = jAdd(createWidget(widget.TEXT, {
+    x: 120, y: 34, w: 240, h: 20, text: '', text_size: M.tsMeta, color: C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V
+  }))
+  jump.modeText = modeTitle
+  jump.dispText = jAdd(createWidget(widget.TEXT, {
+    x: 120, y: 54, w: 240, h: 36, text: '—', text_size: 30, color: C.accent,
+    align_h: align.CENTER_H, align_v: align.CENTER_V
+  }))
+  // 模式切换 chip
+  var chipW = 132, chipX = Math.round((W - chipW) / 2), chipY = 94
+  jAdd(createWidget(widget.FILL_RECT, { x: chipX, y: chipY, w: chipW, h: M.chipH, radius: Math.round(M.chipH / 2), color: C.cardAlt }))
+  var chipTxt = jAdd(createWidget(widget.TEXT, { x: chipX, y: chipY, w: chipW, h: M.chipH, text: '', text_size: M.tsVal, color: C.accentSoft, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var modeTouch = jAdd(createWidget(widget.FILL_RECT, { x: chipX - 8, y: chipY - 6, w: chipW + 16, h: M.chipH + 12, radius: Math.round(M.chipH / 2), color: 0x000000, alpha: 0 }))
+  function paintMode() {
+    var isPct = jump.mode === 'percent'
+    try { modeTitle.setProperty(prop.TEXT, isPct ? getText('readerJumpPercentRange') : getText('readerJumpPageRangePrefix') + estTotal + getText('readerJumpPageRangeSuffix')) } catch (e) {}
+    try { chipTxt.setProperty(prop.TEXT, jumpModeLabel()) } catch (e) {}
+  }
+  modeTouch.addEventListener(event.CLICK_DOWN, function () {
+    jump.mode = jump.mode === 'page' ? 'percent' : 'page'
+    jump.input = ''
+    updateJumpDisplay()
+    paintMode()
+  })
 
-    jump.widgets.push(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 0 }))
-    jump.widgets.push(createWidget(widget.FILL_RECT, { x: px, y: py, w: pw, h: ph, radius: 16, color: MENU_PANEL, alpha: 0 }))
-    jump.widgets.push(createWidget(widget.TEXT, {
-      x: px + 8, y: py + 6, w: pw - 40, h: 22, text: '',
-      text_size: 13, color: UI_SUB, align_h: align.CENTER_H, alpha: 0
-    }))
-    jump.widgets.push(createWidget(widget.TEXT, {
-      x: px + 16, y: py + 32, w: pw - 32, h: 26, text: '___', text_size: 22, color: 0xFFFFFF,
-      align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0
-    }))
-    jump.widgets.push(createWidget(widget.FILL_RECT, { x: px + 16, y: py + 62, w: pw - 32, h: 1, color: 0x333333, alpha: 0 }))
+  // 关闭：键盘下方居中圆钮（圆屏右上角很难点准，且 × 挤在边缘不好看）
+  var jcd = 34, jcx = Math.round((W - jcd) / 2), jcy = 382
+  jAdd(createWidget(widget.FILL_RECT, { x: jcx, y: jcy, w: jcd, h: jcd, radius: 17, color: C.cardAlt }))
+  jAdd(createWidget(widget.TEXT, { x: jcx, y: jcy, w: jcd, h: jcd, text: '×', text_size: 20, color: C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var closeBtn = jAdd(createWidget(widget.FILL_RECT, { x: jcx - 16, y: jcy - 8, w: jcd + 32, h: jcd + 16, radius: 25, color: 0x000000, alpha: 0 }))
+  closeBtn.addEventListener(event.CLICK_DOWN, closeJumpPanel)
 
-    jump.widgets.push(createWidget(widget.FILL_RECT, { x: px + 18, y: py + 70, w: pw - 36, h: 24, radius: 6, color: MENU_BTN_TOGGLE, alpha: 0 }))
-    var modeTitle = createWidget(widget.TEXT, { x: px + 18, y: py + 70, w: pw - 36, h: 24, text: '', text_size: 11, color: UI_ACCENT, align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0 })
-    jump.widgets.push(modeTitle)
-    var modeTouch = createWidget(widget.FILL_RECT, { x: px + 14, y: py + 66, w: pw - 28, h: 32, color: 0x000000, alpha: 0 })
-    modeTouch.addEventListener(event.CLICK_DOWN, function () {
-      jump.mode = jump.mode === 'page' ? 'percent' : 'page'
-      try { jump.widgets[2].setProperty(prop.TEXT, jump.mode === 'percent' ? getText('readerJumpPercentRange') : getText('readerJumpPageRangePrefix') + estTotal + getText('readerJumpPageRangeSuffix')) } catch (e) {}
-      try { jump.widgets[3].setProperty(prop.TEXT, '___') } catch (e) {}
-      try { jump.widgets[5].setProperty(prop.TEXT, jump.mode === 'percent' ? getText('readerCurrentPercent') : getText('readerCurrentPage')) } catch (e) {}
-      jump.input = ''
-    })
-    jump.widgets.push(modeTouch)
-
-    jump.widgets.push(createWidget(widget.TEXT, {
-      x: px + pw - 32, y: py + 4, w: 28, h: 24, text: '×', text_size: 18, color: UI_SUB,
-      align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0
-    }))
-    var closeBtn = createWidget(widget.FILL_RECT, { x: px + pw - 42, y: py - 2, w: 48, h: 38, color: 0x000000, alpha: 0 })
-    closeBtn.addEventListener(event.CLICK_DOWN, closeJumpPanel)
-    jump.widgets.push(closeBtn)
-
-    var btns = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['←', '0', 'OK']]
-    for (var row = 0; row < 4; row++) {
-      for (var col = 0; col < 3; col++) {
-        var label = btns[row][col]
-        var bx = padX + col * (bW + bGap)
-        var by = padY0 + row * (bH + 4)
-        var isOK = label === 'OK', isDel = label === '←'
-        jump.widgets.push(createWidget(widget.FILL_RECT, {
-          x: bx, y: by, w: bW, h: bH, radius: 8, color: isOK ? 0xD8924B : (isDel ? 0x3A2430 : MENU_BTN), alpha: 0
-        }))
-        jump.widgets.push(createWidget(widget.TEXT, {
-          x: bx, y: by, w: bW, h: bH, text: label, text_size: isOK ? 14 : 18, color: 0xFFFFFF,
-          align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0
-        }))
-        var touch = createWidget(widget.FILL_RECT, { x: bx, y: by, w: bW, h: bH, radius: 8, color: 0x000000, alpha: 0 })
-        if (isOK) touch.addEventListener(event.CLICK_DOWN, jumpConfirm)
-        else if (isDel) touch.addEventListener(event.CLICK_DOWN, function () { jumpBackspace() })
-        else touch.addEventListener(event.CLICK_DOWN, (function (d) { return function () { addJumpDigit(d) } })(label))
-        jump.widgets.push(touch)
-      }
+  // 键盘：3×4，键 68×52，gap 10；整体居中（136 → 374，全在圆屏内）
+  var kW = 68, kH = 52, kGap = 10
+  var gridW = 3 * kW + 2 * kGap
+  var gx = Math.round((W - gridW) / 2), gy = 132
+  var btns = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['⌫', '0', 'OK']]
+  for (var row = 0; row < 4; row++) {
+    for (var col = 0; col < 3; col++) {
+      var label = btns[row][col]
+      var bx = gx + col * (kW + kGap)
+      var by = gy + row * (kH + kGap)
+      var isOK = label === 'OK', isDel = label === '⌫'
+      var bgCol = isOK ? C.accent : (isDel ? C.dangerBg : C.cardAlt)
+      var fgCol = isOK ? C.onAccent : (isDel ? C.danger : C.text)
+      jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 18, color: bgCol }))
+      jAdd(createWidget(widget.TEXT, {
+        x: bx, y: by, w: kW, h: kH, text: label, text_size: isOK ? 17 : 22, color: fgCol,
+        align_h: align.CENTER_H, align_v: align.CENTER_V
+      }))
+      var touch = jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 18, color: 0x000000, alpha: 0 }))
+      if (isOK) touch.addEventListener(event.CLICK_DOWN, jumpConfirm)
+      else if (isDel) touch.addEventListener(event.CLICK_DOWN, function () { jumpBackspace() })
+      else touch.addEventListener(event.CLICK_DOWN, (function (d) { return function () { addJumpDigit(d) } })(label))
     }
-
-    jump._poolBuilt = true
   }
 
-  // ── 更新动态内容 ──
-  try { jump.widgets[2].setProperty(prop.TEXT, getText('readerJumpPageRangePrefix') + estTotal + getText('readerJumpPageRangeSuffix')) } catch (e) {}
-  try { jump.widgets[3].setProperty(prop.TEXT, '___') } catch (e) {}
-  try { jump.widgets[5].setProperty(prop.TEXT, getText('readerJumpSwitchHint')) } catch (e) {}
-
-  // ── alpha 动画淡入 ──
-  var overlay = jump.widgets[0]
-  var panelBg = jump.widgets[1]
-  var contentWidgets = []
-  for (var i = 2; i < jump.widgets.length; i++) contentWidgets.push(jump.widgets[i])
-  animFadeGroup([overlay, panelBg], 0, 255, 4, 20, function () {
-    animFadeGroup(contentWidgets, 0, 255, 6, 20)
-  })
-  // overlay 目标是半透明 190
-  setTimeout(function () { try { overlay.setProperty(prop.MORE, { alpha: 190 }) } catch (e) {} }, 100)
+  paintMode()
+  updateJumpDisplay()
 }
 
 function parseParams(params) {
@@ -1319,6 +1402,22 @@ Page({
     fontIdx = defaultFontIdx()
   },
 
+  onShow() {
+    // 从阅读样式页返回：重新应用字号/行距/亮度/主题设置
+    var changed = applySavedConfig(loadProgress(bookId))
+    if (changed) {
+      try { setBrightness({ brightness: brightVal < 0 ? savedBrightness : brightVal }) } catch (e) {}
+      applyChromeColors()
+      relayout()
+      startAuto()
+    }
+    // 从样式页返回：重新打开主菜单（二级菜单返回一级菜单）
+    if (_backToMenu) {
+      _backToMenu = false
+      openMenu()
+    }
+  },
+
   onDestroy() {
     stopClock()
     stopAuto()
@@ -1336,6 +1435,7 @@ Page({
     // 只清理可能处于打开状态的模态面板；正文行控件由系统自动回收
     if (jump.active) { jump.active = false; destroyJumpPool() }
     if (menu.active) { menu.active = false; destroyMenuPool() }
+    _backToMenu = false
     if (bm.active) {
       for (var bi = 0; bi < bm.staticWidgets.length; bi++) { try { deleteWidget(bm.staticWidgets[bi]) } catch (e) {} }
       for (var br = 0; br < bm.rowWidgets.length; br++) { try { deleteWidget(bm.rowWidgets[br]) } catch (e) {} }
@@ -1364,13 +1464,7 @@ Page({
     try { setWakeUpRelaunch({ relaunch: true }) } catch (e) {}
 
     var saved = loadProgress(bookId)
-    if (saved && saved.fontSize) {
-      for (var i = 0; i < FONT_SIZES.length; i++) if (FONT_SIZES[i] === saved.fontSize) fontIdx = i
-    }
-    if (saved && saved.spacingIdx !== undefined && saved.spacingIdx >= 0 && saved.spacingIdx < SPACINGS.length) spacingIdx = saved.spacingIdx
-    if (saved && saved.brightVal !== undefined && (saved.brightVal === -1 || (saved.brightVal >= 5 && saved.brightVal <= 100))) brightVal = saved.brightVal
-    if (saved && saved.themeIdx !== undefined && saved.themeIdx >= 0 && saved.themeIdx < THEMES.length) themeIdx = saved.themeIdx
-    if (saved && saved.autoIdx !== undefined && saved.autoIdx >= 0 && saved.autoIdx < AUTO_SECS.length) autoIdx = saved.autoIdx
+    applySavedConfig(saved)
     scrollMode = !!(saved && saved.scrollMode)
     curStart = saved && saved.offset ? saved.offset : 0
     backStack = []
@@ -1441,6 +1535,8 @@ function handleNavigation(direction) {
 
 function registerMainCrown() {
   crownLastTs = 0
+  crownAccumDeg = 0
+  crownAccumDir = 0
   onDigitalCrown({
     callback: function (key, degree) {
       var direction = crownDirection(key, degree, KEY_HOME)
@@ -1448,7 +1544,16 @@ function registerMainCrown() {
       var now = Date.now()
       if (now - crownLastTs < CROWN_DEBOUNCE) return
       crownLastTs = now
-      handleNavigation(direction)
+      // 滚动模式 / 书签面板：1 个有效事件直接响应（保持原有手感）
+      if (scrollMode || bm.active) { handleNavigation(direction); return }
+      // 翻页模式：同方向累计旋转角度，达到当前灵敏度阈值（90/80/60/40/20°）才翻一页。
+      // 方向切换立即重置 —— 防止快速旋转连翻；度数来自表冠事件回调。
+      if (crownAccumDir !== direction) { crownAccumDir = direction; crownAccumDeg = 0 }
+      crownAccumDeg += Math.abs(degree) || 0
+      if (crownAccumDeg >= effectiveCrownStep()) {
+        crownAccumDeg = 0
+        handleNavigation(direction)
+      }
     }
   })
   // T-Rex 等没有旋钮的机型可以通过方向实体键使用同一导航语义。
