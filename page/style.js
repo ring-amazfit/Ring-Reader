@@ -92,17 +92,29 @@ var PV_Y = 54, PV_H = 96, PV_W = 280
 function updatePreview() {
   var th = theme()
   var size = FONT_SIZES[fontIdx]
-  var lh = Math.round(size * SPACINGS[spacingIdx])
+  var ts = sp(size)                        // 缩放后的字号
+  var lh = Math.round(ts * SPACINGS[spacingIdx])   // 行高随字号缩放
+  var pvW = sp(PV_W), pvX = Math.round((W - pvW) / 2)
   var innerH = sp(PV_H) - sp(16)
-  var maxChars = Math.max(4, Math.floor((sp(PV_W) - sp(28)) / (size * 1.02)))
+  var maxChars = Math.max(4, Math.floor((pvW - sp(28)) / (ts * 1.02)))
   var sample = splitSample(getText('readerStyleSample'), maxChars)
   var n = Math.max(1, Math.min(sample.length, Math.floor(innerH / lh)))
   try { previewBg.setProperty(prop.MORE, { color: th.bg }) } catch (e) {}
   for (var i = 0; i < previewLines.length; i++) {
+    // 全量属性更新：部分固件 setProperty(prop.MORE) 是替换语义，
+    // 漏传 x/w/align 会把控件重置到 (0,0) 宽度 0 —— 预览文字就会挤在左上角/不可见。
     if (i < n && sample[i]) {
-      try { previewLines[i].setProperty(prop.MORE, { text: sample[i], text_size: size, color: th.fg, y: sp(PV_Y) + sp(8) + i * lh, h: lh, alpha: 255 }) } catch (e) {}
+      try { previewLines[i].setProperty(prop.MORE, {
+        x: pvX + sp(14), y: sp(PV_Y) + sp(8) + i * lh, w: pvW - sp(28), h: lh,
+        text: sample[i], text_size: ts, color: th.fg,
+        align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 255
+      }) } catch (e) {}
     } else {
-      try { previewLines[i].setProperty(prop.MORE, { text: '', alpha: 0 }) } catch (e) {}
+      try { previewLines[i].setProperty(prop.MORE, {
+        x: pvX + sp(14), y: sp(PV_Y) + sp(8) + i * lh, w: pvW - sp(28), h: lh,
+        text: '', text_size: ts, color: th.fg,
+        align_h: align.CENTER_H, align_v: align.CENTER_V, alpha: 0
+      }) } catch (e) {}
     }
   }
 }
@@ -169,9 +181,10 @@ function buildUI() {
   // 预览区：直接用主题底色铺一块圆角「纸张」，不套外框
   var pvW = sp(PV_W), pvX = Math.round((W - pvW) / 2)
   previewBg = wAdd(createWidget(widget.FILL_RECT, { x: pvX, y: sp(PV_Y), w: pvW, h: sp(PV_H), radius: sp(M.cardR), color: theme().bg }))
+  // 三行示例文字：创建时按默认行高（24）分行排布，避免全部叠在 y=PV_Y+8
   for (var i = 0; i < 3; i++) {
     previewLines.push(wAdd(createWidget(widget.TEXT, {
-      x: pvX + sp(14), y: sp(PV_Y + 8), w: pvW - sp(28), h: sp(24), text: '', text_size: 12,
+      x: pvX + sp(14), y: sp(PV_Y) + sp(8) + i * sp(24), w: pvW - sp(28), h: sp(24), text: '', text_size: 12,
       color: theme().fg, align_h: align.CENTER_H, align_v: align.CENTER_V
     })))
   }
