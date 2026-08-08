@@ -143,8 +143,12 @@ export function btnFlash(bgW, origColor) {
 export function makeCloseButton(deps, add, y, onClick, W) {
   var createWidget = deps.createWidget, widget = deps.widget, event = deps.event
   var d = 34, x = Math.round(((W || 480) - d) / 2)
+  // 注意：不要依赖 add() 的返回值 —— 调用方可能传入无 return 的收集函数，
+  // 那样 t 会是 undefined，t.addEventListener 直接抛异常并中断整个面板的构建。
   add(createWidget(widget.FILL_RECT, { x: x, y: y, w: d, h: d, radius: 17, color: C.cardAlt }))
   add(createWidget(widget.TEXT, { x: x, y: y, w: d, h: d, text: '×', text_size: 20, color: C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var t = add(createWidget(widget.FILL_RECT, { x: x - 16, y: y - 8, w: d + 32, h: d + 16, radius: 25, color: 0x000000, alpha: 0 }))
+  var t = createWidget(widget.FILL_RECT, { x: x - 16, y: y - 8, w: d + 32, h: d + 16, radius: 25, color: 0x000000, alpha: 0 })
   t.addEventListener(event.CLICK_DOWN, onClick)
+  add(t)
+  return t
 }

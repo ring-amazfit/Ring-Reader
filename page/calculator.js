@@ -516,99 +516,80 @@ function setPage(p) {
 
 // ── 历史记录（控件池版：只建一次，开关只改文字/可见性）──
 var hist = { active: false }
-var histBg = null, histTitle = null, histRows = [], histNoText = null
-var histClearTxt = null, histCloseTxt = null, MAX_HIST = 5
+var MAX_HIST = 5
 var startY = 104, rowH = 42
-// 池化控件里“未保存引用”的可见底块：关闭时必须一起隐藏，否则残留背景
-var histPanelBg = null, histClearBg = null, histCloseBg = null, histLine = null
 
-function buildHistPool() {
-  var S = W / 480
-  histBg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: UI.bg, alpha: 255 })
-  histBg.addEventListener(event.CLICK_DOWN, function () {})
-  // 面板卡片 + 签名线 + 内嵌行
-  // 不画 324×346 方板：圆屏上四角会出界。历史页整屏铺底，行卡片自己承担层次。
-  histPanelBg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COL_BG })
-  histTitle = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(74 * S), w: Math.round(296 * S), h: 22, text: getText('calcHistory'), text_size: M.tsTitle, color: UI.text, align_h: align.CENTER_H })
-  // 签名细线
-  histLine = createWidget(widget.FILL_RECT, { x: Math.round(224 * S), y: Math.round(102 * S), w: Math.round(32 * S), h: Math.round(3 * S), radius: Math.round(2 * S), color: UI.accent })
-  // 行首偏移：签名线下方开始
-  var rowTop = 112
-  for (var i = 0; i < MAX_HIST; i++) {
-    var y = Math.round(rowTop * S) + i * Math.round(rowH * S)
-    var bg = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 8, radius: M.rowR, color: COL_PANEL_SOFT })
-    var expr = createWidget(widget.TEXT, { x: Math.round(106 * S), y: y + 3, w: Math.round(268 * S), h: 16, text: '', text_size: M.tsMeta, color: COL_SUB })
-    var res = createWidget(widget.TEXT, { x: Math.round(106 * S), y: y + 18, w: Math.round(268 * S), h: 18, text: '', text_size: M.tsRow, color: COL_NUM_T })
-    var touch = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 8, radius: M.rowR, color: 0x000000, alpha: 0 })
-    histRows.push({ bg: bg, expr: expr, res: res, touch: touch })
-  }
-  histNoText = createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(210 * S), w: Math.round(296 * S), h: 24, text: '', text_size: M.tsVal, color: COL_SUB, align_h: align.CENTER_H })
-  var hbY = Math.round(342 * S), hbW = Math.round(132 * S), hbH = Math.round(40 * S), hbR = Math.round(hbH / 2)
-  histClearBg = createWidget(widget.FILL_RECT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: COL_DEL })
-  histClearTxt = createWidget(widget.TEXT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, text: getText('calcClear'), text_size: M.tsVal, color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
-  var clr = createWidget(widget.FILL_RECT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: 0x000000, alpha: 0 })
-  clr.addEventListener(event.CLICK_DOWN, function () { _histCache = []; try { localStorage.setItem('calc_history', '[]') } catch (e) {} closeHistory(); openHistory() })
-  histCloseBg = createWidget(widget.FILL_RECT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: UI.accent })
-  histCloseTxt = createWidget(widget.TEXT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, text: getText('calcClose'), text_size: M.tsVal, color: UI.onAccent, align_h: align.CENTER_H, align_v: align.CENTER_V })
-  var cl = createWidget(widget.FILL_RECT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: 0x000000, alpha: 0 })
-  cl.addEventListener(event.CLICK_DOWN, function () { closeHistory() })
-  setHistVisible(false)
-}
+// ── 历史记录（动态创建 / 关闭即销毁）──
+// 旧实现是控件池 + alpha 隐藏，有两个硬伤：
+//   1) 透明触摸层（行触摸、清空、关闭）alpha 恒为 0 且从不隐藏，关闭历史后仍留在屏幕上
+//      拦截点击 —— 表现为关闭历史后键盘那片区域点不动 / 误触发历史项；
+//   2) 依赖 alpha 批量隐藏，任何一处漏隐藏都会残留背景。
+// 现在统一为“打开即建、关闭即全部 deleteWidget”，与菜单 / 书签一致，状态永远干净。
+var histWidgets = []
 
-function setHistVisible(v) {
-  var a = v ? 255 : 0
-  try { histBg.setProperty(prop.MORE, { alpha: v ? 255 : 0 }) } catch (e) {}
-  try { histPanelBg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histLine.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histClearBg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histCloseBg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histTitle.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histNoText.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histClearTxt.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  try { histCloseTxt.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-  for (var i = 0; i < histRows.length; i++) {
-    try { histRows[i].bg.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-    try { histRows[i].expr.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-    try { histRows[i].res.setProperty(prop.MORE, { alpha: a }) } catch (e) {}
-    try { histRows[i].touch.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
-  }
-}
+function hAdd(w) { histWidgets.push(w); return w }
 
 function closeHistory() {
-  // 同步关闭（可靠优先）：立即隐藏全部控件并复位状态
-  setHistVisible(false)
+  for (var i = 0; i < histWidgets.length; i++) { try { deleteWidget(histWidgets[i]) } catch (e) {} }
+  histWidgets = []
   hist.active = false
 }
 
 function openHistory() {
   if (hist.active) return
-  if (!histBg) buildHistPool()
   hist.active = true
+  histWidgets = []
+
+  var S = W / 480
   var h = _histCache || []
   if (!_histCache) { try { h = _histCache = JSON.parse(localStorage.getItem('calc_history', '[]')) } catch (e) { h = [] } }
   var n = Math.min(h.length, MAX_HIST)
-  var S = W / 480
-  for (var i = 0; i < MAX_HIST; i++) {
-    if (i < n) {
-      var it = h[h.length - 1 - i]
-      var y = Math.round(112 * S) + i * Math.round(rowH * S)
-      try { histRows[i].bg.setProperty(prop.MORE, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: Math.round(rowH * S) - 8, radius: M.rowR, color: COL_PANEL_SOFT, alpha: 255 }) } catch (e) {}
-      try { histRows[i].expr.setProperty(prop.TEXT, trim(it.e, 26)) } catch (e) {}
-      try { histRows[i].res.setProperty(prop.TEXT, '= ' + trim(it.r, 22)) } catch (e) {}
-      try { histRows[i].touch.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
-      histRows[i].touch.removeAllListeners && histRows[i].touch.removeAllListeners()
-      // 点历史行 = 把该条结果整体替换进输入区（而不是在光标处逐字插入）
-      histRows[i].touch.addEventListener(event.CLICK_DOWN, (function (res) { return function () { closeHistory(); setResultTokens(res) } })(it.r))
-    } else {
-      try { histRows[i].bg.setProperty(prop.MORE, { alpha: 0 }) } catch (e) {}
-      try { histRows[i].expr.setProperty(prop.TEXT, '') } catch (e) {}
-      try { histRows[i].res.setProperty(prop.TEXT, '') } catch (e) {}
-    }
+
+  // 整屏铺底（不透明，直接显示，无淡入动画）
+  var bg = hAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COL_BG }))
+  bg.addEventListener(event.CLICK_DOWN, function () {})
+
+  hAdd(createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(74 * S), w: Math.round(296 * S), h: 22, text: getText('calcHistory'), text_size: M.tsTitle, color: UI.text, align_h: align.CENTER_H }))
+  hAdd(createWidget(widget.FILL_RECT, { x: Math.round(224 * S), y: Math.round(102 * S), w: Math.round(32 * S), h: Math.round(3 * S), radius: Math.round(2 * S), color: UI.accent }))
+
+  // 历史行：最新的在最上面
+  for (var i = 0; i < n; i++) {
+    var it = h[h.length - 1 - i]
+    var y = Math.round(112 * S) + i * Math.round(rowH * S)
+    var rh = Math.round(rowH * S) - 8
+    hAdd(createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: rh, radius: M.rowR, color: COL_PANEL_SOFT }))
+    hAdd(createWidget(widget.TEXT, { x: Math.round(106 * S), y: y + 3, w: Math.round(268 * S), h: 16, text: trim(it.e, 26), text_size: M.tsMeta, color: COL_SUB }))
+    hAdd(createWidget(widget.TEXT, { x: Math.round(106 * S), y: y + 18, w: Math.round(268 * S), h: 18, text: '= ' + trim(it.r, 22), text_size: M.tsRow, color: COL_NUM_T }))
+    // 触摸层最后建（盖在文字之上），点一条 = 把结果整体替换进输入区
+    var rowTouch = createWidget(widget.FILL_RECT, { x: Math.round(92 * S), y: y, w: Math.round(296 * S), h: rh, radius: M.rowR, color: 0x000000, alpha: 0 })
+    rowTouch.addEventListener(event.CLICK_DOWN, (function (res) { return function () { closeHistory(); setResultTokens(res) } })(it.r))
+    hAdd(rowTouch)
   }
-  try { histNoText.setProperty(prop.TEXT, n === 0 ? getText('calcNoHistory') : '') } catch (e) {}
-  // 同步直接显示（不做淡入动画：本设备定时器回调不可靠，淡入会卡在透明态导致面板不显示）
-  setHistVisible(true)
+
+  if (n === 0) {
+    hAdd(createWidget(widget.TEXT, { x: Math.round(92 * S), y: Math.round(210 * S), w: Math.round(296 * S), h: 24, text: getText('calcNoHistory'), text_size: M.tsVal, color: COL_SUB, align_h: align.CENTER_H }))
+  }
+
+  // 底部两钮：清空 / 关闭
+  var hbY = Math.round(342 * S), hbW = Math.round(132 * S), hbH = Math.round(40 * S), hbR = Math.round(hbH / 2)
+  hAdd(createWidget(widget.FILL_RECT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: COL_DEL }))
+  hAdd(createWidget(widget.TEXT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, text: getText('calcClear'), text_size: M.tsVal, color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var clr = createWidget(widget.FILL_RECT, { x: Math.round(94 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: 0x000000, alpha: 0 })
+  clr.addEventListener(event.CLICK_DOWN, function () {
+    _histCache = []
+    try { localStorage.setItem('calc_history', '[]') } catch (e) {}
+    closeHistory()
+    openHistory()
+  })
+  hAdd(clr)
+
+  hAdd(createWidget(widget.FILL_RECT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: UI.accent }))
+  hAdd(createWidget(widget.TEXT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, text: getText('calcClose'), text_size: M.tsVal, color: UI.onAccent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var cl = createWidget(widget.FILL_RECT, { x: Math.round(254 * S), y: hbY, w: hbW, h: hbH, radius: hbR, color: 0x000000, alpha: 0 })
+  cl.addEventListener(event.CLICK_DOWN, function () { closeHistory() })
+  hAdd(cl)
 }
+
 function trim(s, m) { s = String(s); return s.length > m ? s.substring(0, m - 1) + '…' : s }
 
 // animFadeGroup 已统一到 utils/ui.js

@@ -1332,18 +1332,19 @@ function openJumpPanel() {
   var kW = 68, kH = 52, kGap = 10
   var gridW = 3 * kW + 2 * kGap
   var gx = Math.round((W - gridW) / 2), gy = 132
-  var btns = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['⌫', '0', 'OK']]
+  // ⌫ 字形在手表字体里是方框，退格键用 DEL 文本
+  var btns = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['DEL', '0', 'OK']]
   for (var row = 0; row < 4; row++) {
     for (var col = 0; col < 3; col++) {
       var label = btns[row][col]
       var bx = gx + col * (kW + kGap)
       var by = gy + row * (kH + kGap)
-      var isOK = label === 'OK', isDel = label === '⌫'
+      var isOK = label === 'OK', isDel = label === 'DEL'
       var bgCol = isOK ? C.accent : (isDel ? C.dangerBg : C.cardAlt)
       var fgCol = isOK ? C.onAccent : (isDel ? C.danger : C.text)
       jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 18, color: bgCol }))
       jAdd(createWidget(widget.TEXT, {
-        x: bx, y: by, w: kW, h: kH, text: label, text_size: isOK ? 17 : 22, color: fgCol,
+        x: bx, y: by, w: kW, h: kH, text: label, text_size: isOK ? 17 : (isDel ? 15 : 22), color: fgCol,
         align_h: align.CENTER_H, align_v: align.CENTER_V
       }))
       var touch = jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 18, color: 0x000000, alpha: 0 }))
