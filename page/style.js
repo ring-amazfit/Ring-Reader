@@ -99,7 +99,8 @@ function updatePreview() {
   var maxChars = Math.max(4, Math.floor((pvW - sp(28)) / (ts * 1.02)))
   var sample = splitSample(getText('readerStyleSample'), maxChars)
   var n = Math.max(1, Math.min(sample.length, Math.floor(innerH / lh)))
-  try { previewBg.setProperty(prop.MORE, { color: th.bg }) } catch (e) {}
+  // 背景同样全量更新：只传 color 在部分固件上不重绘/丢几何，主题切换后底色不变
+  try { previewBg.setProperty(prop.MORE, { x: pvX, y: sp(PV_Y), w: pvW, h: sp(PV_H), radius: sp(M.cardR), color: th.bg }) } catch (e) {}
   for (var i = 0; i < previewLines.length; i++) {
     // 全量属性更新：部分固件 setProperty(prop.MORE) 是替换语义，
     // 漏传 x/w/align 会把控件重置到 (0,0) 宽度 0 —— 预览文字就会挤在左上角/不可见。
