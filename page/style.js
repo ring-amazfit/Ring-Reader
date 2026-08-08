@@ -11,7 +11,7 @@ import { localStorage } from '@zos/storage'
 import { setBrightness } from '@zos/display'
 import { getText } from '@zos/i18n'
 import { getDeviceInfo } from '@zos/device'
-import { C, M, makeSlider, rowW } from '../utils/ui'
+import { C, M, makeSlider, rowW, setScale } from '../utils/ui'
 
 var W = 480
 function sp(v) { return Math.round(v * W / 480) }
@@ -207,7 +207,7 @@ function buildUI() {
   makeSlider(UIDEPS, wAdd, slX, bY + Math.round((h - sp(M.sliderKnob)) / 2), slW, 1, 20, brightVal < 0 ? 1 : Math.max(1, Math.round(brightVal / 5)), applyBrightStep)
 
   // 完成：底部琥珀胶囊（保存并返回）
-  var doneW = sp(180), doneX = Math.round((W - doneW) / 2), doneY = sp(374), doneH = sp(40)
+  var doneW = sp(200), doneX = Math.round((W - doneW) / 2), doneY = sp(368), doneH = sp(M.btnH)
   wAdd(createWidget(widget.FILL_RECT, { x: doneX, y: doneY, w: doneW, h: doneH, radius: Math.round(doneH / 2), color: C.accent }))
   wAdd(createWidget(widget.TEXT, { x: doneX, y: doneY, w: doneW, h: doneH, text: getText('readerStyleBack'), text_size: sp(M.tsRow), color: C.onAccent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var doneTouch = wAdd(createWidget(widget.FILL_RECT, { x: doneX - sp(8), y: doneY - sp(6), w: doneW + sp(16), h: doneH + sp(12), radius: Math.round(doneH / 2) + sp(6), color: 0x000000, alpha: 0 }))
@@ -223,6 +223,7 @@ Page({
       if (p.bookId !== undefined && p.bookId !== null) bookId = String(p.bookId)
     } catch (e) {}
     try { var di = getDeviceInfo(); if (di && di.width) W = di.width } catch (e) {}
+    setScale(W)
     loadStyle()
     buildUI()
   },

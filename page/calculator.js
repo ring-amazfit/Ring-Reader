@@ -11,7 +11,8 @@ import { localStorage } from '@zos/storage'
 import { getDeviceInfo } from '@zos/device'
 import { getText } from '@zos/i18n'
 import { crownDirection, crownDebounceMs, keyDirection } from '../utils/crown'
-import { C as UI, M } from '../utils/ui'  // C 与本页换算钮工厂 C() 同名，故取别名
+import { C as UI, M, setScale } from '../utils/ui'  // C 与本页换算钮工厂 C() 同名，故取别名
+// setScale 在 computeLayout 中调用，保证 466 屏等比缩放
 
 var W = 480, H = 480
 
@@ -44,6 +45,7 @@ function computeLayout() {
   var di; try { di = getDeviceInfo() } catch (e) { di = null }
   W = (di && di.width) ? di.width : 480
   H = (di && di.height) ? di.height : 480
+  setScale(W)
   var S = W / 480
   CELL = Math.round(62 * S); GAP = Math.round(8 * S); STEP = CELL + GAP; CELL_R = Math.round(18 * S)
   GRID_X = Math.round((W - (COLS * CELL + (COLS - 1) * GAP)) / 2)
@@ -631,10 +633,11 @@ Page({
       x: Math.round(107 * S), y: Math.round(60 * S), w: Math.round(220 * S), h: Math.round(42 * S), text: '0', text_size: 38, color: COL_DISP,
       align_h: align.RIGHT, align_v: align.CENTER_V
     })
-    // 删除键：面板右上角，暗红圆角块 + DEL 文字（⌫ 在手表字体里是方框，用文本）
-    createWidget(widget.FILL_RECT, { x: Math.round(333 * S), y: Math.round(61 * S), w: Math.round(44 * S), h: Math.round(40 * S), radius: Math.round(12 * S), color: COL_DEL })
-    createWidget(widget.TEXT, { x: Math.round(333 * S), y: Math.round(61 * S), w: Math.round(44 * S), h: Math.round(40 * S), text: 'DEL', text_size: Math.round(13 * S), color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
-    var delTouch = createWidget(widget.FILL_RECT, { x: Math.round(329 * S), y: Math.round(57 * S), w: Math.round(52 * S), h: Math.round(48 * S), radius: Math.round(14 * S), color: 0x000000, alpha: 0 })
+    // 删除键：面板右上角，暗红圆角块 + DEL 文字，44×44 大点击区
+    var dd = Math.round(44 * S)
+    createWidget(widget.FILL_RECT, { x: Math.round(329 * S), y: Math.round(59 * S), w: dd, h: dd, radius: Math.round(13 * S), color: COL_DEL })
+    createWidget(widget.TEXT, { x: Math.round(329 * S), y: Math.round(59 * S), w: dd, h: dd, text: 'DEL', text_size: Math.round(14 * S), color: COL_DEL_T, align_h: align.CENTER_H, align_v: align.CENTER_V })
+    var delTouch = createWidget(widget.FILL_RECT, { x: Math.round(324 * S), y: Math.round(54 * S), w: Math.round(54 * S), h: Math.round(54 * S), radius: Math.round(15 * S), color: 0x000000, alpha: 0 })
     delTouch.addEventListener(event.CLICK_DOWN, function () { doDelete() })
 
     buildSlots()

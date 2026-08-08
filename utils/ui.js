@@ -1,15 +1,23 @@
-import { align, event, prop } from '@zos/ui'
-
 /**
- * 统一 UI 设计令牌 + 自绘控件（滑条 / 关闭钮）+ 公共动画助手
+ * 统一 UI 设计令牌 + 自绘控件（滑条 / 关闭钮）+ 设备缩放基线
  *
  * 为什么自绘：实机验证 widget.SLIDE_SWITCH 会把 64×40 的 PNG 拉伸进 64×32 的框
  * （旋钮溢出轨道），widget.SLIDER 在该固件上根本不渲染轨道和旋钮（只剩一个灰盒）。
  * 所以滑条一律用 FILL_RECT 自绘，外观可控、任何固件表现一致。
  *
+ * 设备缩放：本项目跨 480 屏（Balance / T-Rex 3 / Cheetah Pro）与 466 屏（GTR4 / Active 2）。
+ * 各页在 onInit / build / computeLayout 里调用 setScale(W)，之后统一用 sp() 取值，
+ * 保证 466 屏上所有控件等比缩小但比例一致，不再按 480 硬编码导致按钮被圆边裁掉。
+ *
  * 注意：本文件只负责“壳层 UI”（菜单/列表/按钮/弹层），
  * 不参与阅读正文的排版计算（字号 / 行距 / 每行字数由 reader.js 自己算）。
  */
+import { align, event, prop } from '@zos/ui'
+
+// ── 设备缩放 ──
+var SCALE = 1
+export function setScale(w) { SCALE = (w && w > 0) ? w / 480 : 1 }
+export function sp(v) { return Math.round(v * SCALE) }
 
 // ── 颜色令牌 ──
 export var C = {
@@ -32,28 +40,32 @@ export var C = {
   press: 0x3C3E44      // 按压高亮
 }
 
-// ── 尺寸令牌 ──
+// ── 尺寸令牌（全部以 480 设计稿为基准，页面用 sp() 缩放）──
+// 所有“可点击”目标刻意放大，小表（466 屏）等比缩小后仍有足够热区。
 export var M = {
-  rowH: 44,        // 独立胶囊行高
+  rowH: 48,        // 独立胶囊行高（原 44 → 48，点击区更大）
   rowGap: 8,       // 行间距
   cardR: 22,       // 卡片圆角
-  rowR: 22,        // 胶囊行圆角（= rowH/2，整行胶囊）
+  rowR: 24,        // 胶囊行圆角（= rowH/2）
   padX: 20,        // 行内左右内边距
-  swW: 46, swH: 26, swKnob: 20,      // 开关
-  trackH: 6, sliderKnob: 18,         // 滑条
-  stepBtn: 38,     // 圆形步进按钮直径
-  btnH: 44,        // 主按钮高
-  chipH: 34,       // 顶部 chip 高
-  tsTitle: 17, tsRow: 15, tsVal: 14, tsMeta: 11,
+  swW: 48, swH: 28, swKnob: 22,      // 开关（旋钮同步加大）
+  trackH: 8, sliderKnob: 22,         // 滑条（旋钮 18 → 22，更好拖）
+  stepBtn: 44,     // 圆形步进按钮直径（原 38 → 44）
+  btnH: 48,        // 主按钮高（原 44 → 48）
+  chipH: 40,       // 顶部 chip 高（原 32 → 40）
+  closeD: 44,      // 底部关闭圆钮直径（原 34 → 44）
+  delD: 36,        // 删除圆形 chip 直径（原 28 → 36）
+  keyW: 76, keyH: 60, keyGap: 8,     // 键盘键（跳页/密码，原 68×52/10 → 更大）
+  tsTitle: 17, tsRow: 16, tsVal: 15, tsMeta: 12,
   maxW: 352        // 胶囊行宽度上限（全应用统一）
 }
 
 // ── 圆屏几何 ──
 // 圆屏上下边缘可用宽度骤减：y 越靠两极，能放的行就越窄。
-// rowW(y, h) 返回一行在 [y, y+h] 区间内可完整显示的最大居中宽度，
-// 让列表自然形成「中间宽、两头窄」的桶形节奏 —— 这是刻意的圆屏语言，不是随机缩放。
+// rowW(y, h) 返回一行在 [y, y+h] 区间内可完整显示的最大居中宽度。
+// R 缺省使用当前设备半径（480 屏 240，466 屏 233），配合 sp() 完成全机型适配。
 export function rowW(y, h, R, pad) {
-  R = R || 240
+  R = R || Math.round(240 * SCALE)
   pad = pad === undefined ? 8 : pad
   var top = Math.abs(y - R), bot = Math.abs(y + h - R)
   var dy = Math.max(top, bot)          // 离圆心最远的那条边决定宽度
@@ -137,17 +149,16 @@ export function btnFlash(bgW, origColor) {
 }
 
 /**
- * 底部居中关闭圆钮（菜单 / 书签 / 跳页 / 密码四处共用）。
- * y 为圆钮顶边；W 为屏幕宽，用于居中。
+ * 底部居中关闭圆钮（菜单 / 书签 / 跳页 / 密码四处共用），直径 M.closeD。
+ * 注意：不要依赖 add() 的返回值 —— 调用方可能传入无 return 的收集函数，
+ * 那样 t 会是 undefined，t.addEventListener 直接抛异常并中断整个面板的构建。
  */
 export function makeCloseButton(deps, add, y, onClick, W) {
   var createWidget = deps.createWidget, widget = deps.widget, event = deps.event
-  var d = 34, x = Math.round(((W || 480) - d) / 2)
-  // 注意：不要依赖 add() 的返回值 —— 调用方可能传入无 return 的收集函数，
-  // 那样 t 会是 undefined，t.addEventListener 直接抛异常并中断整个面板的构建。
-  add(createWidget(widget.FILL_RECT, { x: x, y: y, w: d, h: d, radius: 17, color: C.cardAlt }))
-  add(createWidget(widget.TEXT, { x: x, y: y, w: d, h: d, text: '×', text_size: 20, color: C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var t = createWidget(widget.FILL_RECT, { x: x - 16, y: y - 8, w: d + 32, h: d + 16, radius: 25, color: 0x000000, alpha: 0 })
+  var d = sp(M.closeD), x = Math.round(((W || 480) - d) / 2)
+  add(createWidget(widget.FILL_RECT, { x: x, y: y, w: d, h: d, radius: Math.round(d / 2), color: C.cardAlt }))
+  add(createWidget(widget.TEXT, { x: x, y: y, w: d, h: d, text: '×', text_size: sp(24), color: C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  var t = createWidget(widget.FILL_RECT, { x: x - sp(16), y: y - sp(8), w: d + sp(32), h: d + sp(16), radius: Math.round(d / 2) + sp(8), color: 0x000000, alpha: 0 })
   t.addEventListener(event.CLICK_DOWN, onClick)
   add(t)
   return t

@@ -18,7 +18,7 @@ import { createWidget, widget, align, event, prop, deleteWidget } from '@zos/ui'
 import { back, push } from '@zos/router'
 import { onDigitalCrown, KEY_HOME, KEY_UP, KEY_DOWN, offDigitalCrown, onKey, offKey } from '@zos/interaction'
 import { crownDirection, crownDebounceMs, keyDirection } from '../utils/crown'
-import { C, M, makeSlider, rowW, makeCloseButton } from '../utils/ui'
+import { C, M, makeSlider, rowW, makeCloseButton, setScale } from '../utils/ui'
 import { localStorage } from '@zos/storage'
 import { setWakeUpRelaunch, setBrightness, getBrightness } from '@zos/display'
 import { Time, Battery } from '@zos/sensor'
@@ -150,7 +150,7 @@ var jump = { active: false, input: '', mode: 'page', widgets: [], _poolBuilt: fa
 // 行内“执行类”操作（跳页确认、点书签跳转）会先清除此标记，直接进入阅读。
 var _backToMenu = false
 var _longPressTimer = null  // 已废弃，书签改为菜单按钮
-var menu = { active: false, widgets: [], _poolBuilt: false, fontText: null, spacingText: null, brightText: null, themeText: null, autoText: null, autoBtnTxt: null, scrollText: null, timerText: null, awakeTxt: null }
+var menu = { active: false, widgets: [], _poolBuilt: false, page: 0, fontText: null, spacingText: null, brightText: null, themeText: null, autoText: null, autoBtnTxt: null, scrollText: null, timerText: null, awakeTxt: null }
 
 var loadingPulse = null
 function clearLoading() {
@@ -186,6 +186,7 @@ function computeLayout() {
   var di; try { di = getDeviceInfo() } catch (e) { di = null }
   W = (di && di.width) ? di.width : 480
   H = (di && di.height) ? di.height : 480
+  setScale(W)
   var S = W / 480
   READ_Y = Math.round(58 * S); READ_BOTTOM = H - Math.round(72 * S); READ_H = READ_BOTTOM - READ_Y
   var radius = W / 2, center = H / 2
@@ -953,7 +954,7 @@ function addBookmark() {
 }
 
 var bm = { active: false, staticWidgets: [], rowWidgets: [], page: 0 }
-var BM_PER_PAGE = 5
+var BM_PER_PAGE = 4          // 行高加大后每页 4 行（表冠可翻页）
 function closeBookmarks() {
   for (var i = 0; i < bm.staticWidgets.length; i++) { try { deleteWidget(bm.staticWidgets[i]) } catch (e) {} }
   for (var i = 0; i < bm.rowWidgets.length; i++) { try { deleteWidget(bm.rowWidgets[i]) } catch (e) {} }
@@ -975,8 +976,8 @@ function renderBookmarkPage() {
   if (bm.page >= totalPages) bm.page = totalPages - 1
   if (bm.page < 0) bm.page = 0
 
-  // 独立胶囊行，宽度按圆屏可用宽自适应（与菜单同一套语言）
-  var startY = 108, rowH = 44, rowGap = 8
+  // 独立胶囊行，行高 54（大点击区），每页 4 行；宽度按圆屏可用宽自适应
+  var startY = 104, rowH = 54, rowGap = 8
   var start = bm.page * BM_PER_PAGE
   var end = Math.min(list.length, start + BM_PER_PAGE)
   var n = end - start
@@ -990,15 +991,15 @@ function renderBookmarkPage() {
     bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: bx, y: y, w: bw, h: rowH, radius: Math.round(rowH / 2), color: C.card }))
     bm.rowWidgets.push(createWidget(widget.TEXT, { x: lx, y: y, w: 150, h: rowH, text: getText('readerPage') + it.page, text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
     bm.rowWidgets.push(createWidget(widget.TEXT, { x: rx - 84, y: y, w: 48, h: rowH, text: it.pct + '%', text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
-    var jt = createWidget(widget.FILL_RECT, { x: bx, y: y, w: bw - 52, h: rowH, radius: Math.round(rowH / 2), color: 0x000000, alpha: 0 })
+    var jt = createWidget(widget.FILL_RECT, { x: bx, y: y, w: bw - 64, h: rowH, radius: Math.round(rowH / 2), color: 0x000000, alpha: 0 })
     // 点书签行 = 执行跳转，直接进入阅读（不再回菜单）
     jt.addEventListener(event.CLICK_DOWN, (function (off) { return function () { _backToMenu = false; closeBookmarks(); curStart = off; backStack = []; refreshDisplay(); saveProgress() } })(it.offset))
     bm.rowWidgets.push(jt)
-    // 删除：暗红圆形 chip（视觉 28，热区 44）
-    var chipX = rx - 28, chipY = y + Math.round((rowH - 28) / 2)
-    bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: chipX, y: chipY, w: 28, h: 28, radius: 14, color: C.dangerBg }))
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: chipX, y: chipY, w: 28, h: 28, text: '×', text_size: 16, color: C.danger, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-    var dt = createWidget(widget.FILL_RECT, { x: chipX - 8, y: y, w: 44, h: rowH, radius: 22, color: 0x000000, alpha: 0 })
+    // 删除：暗红圆形 chip（直径 36，热区 54 全行）
+    var chipD = 36, chipX = rx - chipD, chipY = y + Math.round((rowH - chipD) / 2)
+    bm.rowWidgets.push(createWidget(widget.FILL_RECT, { x: chipX, y: chipY, w: chipD, h: chipD, radius: Math.round(chipD / 2), color: C.dangerBg }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: chipX, y: chipY, w: chipD, h: chipD, text: '×', text_size: 20, color: C.danger, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var dt = createWidget(widget.FILL_RECT, { x: rx - 62, y: y, w: 62, h: rowH, radius: 27, color: 0x000000, alpha: 0 })
     dt.addEventListener(event.CLICK_DOWN, (function (ts) { return function () {
       var l = bookmarksOf(); var nl = []
       for (var k = 0; k < l.length; k++) if (l[k].ts !== ts) nl.push(l[k])
@@ -1010,7 +1011,7 @@ function renderBookmarkPage() {
   if (list.length === 0) bm.rowWidgets.push(createWidget(widget.TEXT, { x: 90, y: 210, w: 300, h: 24, text: getText('readerNoBookmarks'), text_size: M.tsVal, color: C.muted, align_h: align.CENTER_H }))
 
   if (totalPages > 1) {
-    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 150, y: 388, w: 180, h: 18, text: (bm.page + 1) + '/' + totalPages + '  ' + getText('readerCrownPaging'), text_size: M.tsMeta, color: C.muted, align_h: align.CENTER_H }))
+    bm.rowWidgets.push(createWidget(widget.TEXT, { x: 150, y: 366, w: 180, h: 18, text: (bm.page + 1) + '/' + totalPages + '  ' + getText('readerCrownPaging'), text_size: M.tsMeta, color: C.muted, align_h: align.CENTER_H }))
   }
 }
 
@@ -1025,8 +1026,8 @@ function openBookmarks() {
   bg.addEventListener(event.CLICK_DOWN, function () {})
   bm.staticWidgets.push(bg)
   bm.staticWidgets.push(createWidget(widget.TEXT, { x: 0, y: 22, w: W, h: 26, text: getText('readerBookmarks'), text_size: M.tsTitle, color: C.text, align_h: align.CENTER_H }))
-  // 关闭：底部居中圆钮（共用组件）
-  makeCloseButton(UIDEPS, function (w) { bm.staticWidgets.push(w) }, H - 46, function () { closeBookmarks() }, W)
+  // 关闭：底部居中大圆钮（共用组件，直径 44）
+  makeCloseButton(UIDEPS, function (w) { bm.staticWidgets.push(w) }, H - 56, function () { closeBookmarks() }, W)
   // 添加书签（琥珀胶囊）
   bm.staticWidgets.push(createWidget(widget.FILL_RECT, { x: 140, y: 52, w: 200, h: M.btnH, radius: Math.round(M.btnH / 2), color: C.accent }))
   bm.staticWidgets.push(createWidget(widget.TEXT, { x: 140, y: 52, w: 200, h: M.btnH, text: getText('readerAddBookmark'), text_size: M.tsRow, color: C.onAccent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
@@ -1059,13 +1060,16 @@ function destroyMenuPool() {
 
 function mAdd(w) { menu.widgets.push(w); return w }
 
-// ── 菜单几何：独立胶囊行（不再是一整块灰卡片切分隔线）──
+// ── 菜单几何：独立胶囊行（大按钮，支持分页）──
 // 每行是一颗独立的圆角胶囊，宽度按所在 y 的圆屏可用宽度自适应（上限 352），
-// 于是列表天然形成「中间宽、底部收窄」的桶形轮廓，贴合圆屏而不是硬塞方卡。
-var MROW = 40                      // 常规行高
-var MPITCH = 46                    // 行间距（行高 + 6）
-var MCAP = M.maxW                  // 行宽上限（统一令牌）
+// 形成「中间宽、底部收窄」的桶形轮廓。行高 48 加大点击区；
+// 内容分 2 页：页1 功能（三联开关/表冠/自动），页2 导航（书签/跳页/样式），表冠翻页。
+var MROW = 48                       // 常规行高（加大点击区）
+var MPITCH = 56                     // 行间距（行高 + 8）
+var CROWN_H = 52                    // 表冠滑条行高（滑条更高更好拖）
+var MCAP = M.maxW                   // 行宽上限（统一令牌）
 var UIDEPS = { createWidget: createWidget, widget: widget, event: event, prop: prop }
+var CONTENT_Y = 104                 // 内容区起始 y（头部下方）
 
 function menuRowGeo(y, h) {
   var w = Math.min(MCAP, rowW(y, h))
@@ -1083,12 +1087,12 @@ function menuRow(y, label, type, opt) {
   var g = menuRowGeo(y, MROW)
   var lx = g.x + M.padX, rx = g.x + g.w - M.padX
   mAdd(createWidget(widget.FILL_RECT, { x: g.x, y: y, w: g.w, h: MROW, radius: Math.round(MROW / 2), color: C.card }))
-  mAdd(createWidget(widget.TEXT, { x: lx, y: y, w: 150, h: MROW, text: label, text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
+  mAdd(createWidget(widget.TEXT, { x: lx, y: y, w: 160, h: MROW, text: label, text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
   var ctrl = null
   if (type === 'nav') {
-    mAdd(createWidget(widget.TEXT, { x: rx - 18, y: y, w: 18, h: MROW, text: '>', text_size: 19, color: C.muted, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    mAdd(createWidget(widget.TEXT, { x: rx - 22, y: y, w: 22, h: MROW, text: '>', text_size: 22, color: C.muted, align_h: align.RIGHT, align_v: align.CENTER_V }))
   } else {
-    var vt = mAdd(createWidget(widget.TEXT, { x: rx - 160, y: y, w: 160, h: MROW, text: opt.text(), text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    var vt = mAdd(createWidget(widget.TEXT, { x: rx - 170, y: y, w: 170, h: MROW, text: opt.text(), text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
     ctrl = { set: function (t) { try { vt.setProperty(prop.TEXT, t) } catch (e) {} } }
   }
   var t = mAdd(createWidget(widget.FILL_RECT, { x: g.x, y: y, w: g.w, h: MROW, radius: Math.round(MROW / 2), color: 0x000000, alpha: 0 }))
@@ -1097,9 +1101,8 @@ function menuRow(y, label, type, opt) {
 }
 
 /**
- * 开关组：三个并排的方形 chip（全屏 / 滚动 / 常亮）。
+ * 三联开关 chip（全屏 / 滚动 / 常亮），48 高，点击区大。
  * 开启态 = 暖色底 + 琥珀图标文字，关闭态 = 深底 + 灰字。
- * 比三行「文字 + 小开关」信息密度高得多，也不再依赖被拉伸的开关图。
  */
 function menuToggleChips(y) {
   var g = menuRowGeo(y, MROW)
@@ -1113,9 +1116,9 @@ function menuToggleChips(y) {
   for (var i = 0; i < n; i++) {
     var x = g.x + i * (cw + gap)
     var on = defs[i].get()
-    var bg = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: cw, h: MROW, radius: 14, color: on ? C.cardOn : C.card }))
-    var tx = mAdd(createWidget(widget.TEXT, { x: x, y: y, w: cw, h: MROW, text: defs[i].label, text_size: M.tsVal, color: on ? C.accentSoft : C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-    var touch = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: cw, h: MROW, radius: 14, color: 0x000000, alpha: 0 }))
+    var bg = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: cw, h: MROW, radius: 16, color: on ? C.cardOn : C.card }))
+    var tx = mAdd(createWidget(widget.TEXT, { x: x, y: y, w: cw, h: MROW, text: defs[i].label, text_size: M.tsRow, color: on ? C.accentSoft : C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+    var touch = mAdd(createWidget(widget.FILL_RECT, { x: x, y: y, w: cw, h: MROW, radius: 16, color: 0x000000, alpha: 0 }))
     touch.addEventListener(event.CLICK_DOWN, (function (d, bgW, txW) {
       return function () {
         d.act()
@@ -1127,8 +1130,7 @@ function menuToggleChips(y) {
   }
 }
 
-// 进度环：沿屏幕边缘画一圈 ARC —— 圆屏上最自然的进度表达，不占中间版面。
-// 固件不支持 ARC 时降级为顶部一条细横条，保证进度始终可见。
+// 进度环：沿屏幕边缘画一圈 ARC。固件不支持 ARC 时降级为顶部细横条。
 function menuProgressRing() {
   var pct = percent()
   if (widget.ARC !== undefined) {
@@ -1148,10 +1150,76 @@ function menuProgressRing() {
     } catch (e) {}
     if (ok) return
   }
-  // 降级：顶部细横条
   var bw = 200, bx = Math.round((W - bw) / 2), by = 22
   mAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: bw, h: 4, radius: 2, color: C.cardAlt }))
   mAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: Math.max(4, Math.round(bw * pct / 100)), h: 4, radius: 2, color: C.accent }))
+}
+
+// 页指示点：两个圆点，当前页琥珀。点击可直接跳页（热区 44×44）。
+function menuPageDots() {
+  var n = 2, d = 10, gap = 26
+  var total = n * d + (n - 1) * gap
+  var sx = Math.round((W - total) / 2), y = 288
+  for (var p = 0; p < n; p++) {
+    var dx = sx + p * (d + gap)
+    var active = p === menu.page
+    var dot = mAdd(createWidget(widget.FILL_RECT, { x: dx, y: y, w: active ? 16 : d, h: d, radius: 5, color: active ? C.accent : C.track }))
+    mAdd(dot)
+    var t = mAdd(createWidget(widget.FILL_RECT, { x: dx - 14, y: y - 14, w: d + 28, h: d + 28, radius: 21, color: 0x000000, alpha: 0 }))
+    t.addEventListener(event.CLICK_DOWN, (function (pp) { return function () { menuSetPage(pp) } })(p))
+  }
+}
+
+// 翻页：删除内容区控件（CONTENT_Y 之后创建的），按页重建。
+var menuContentStart = 0
+function menuBuildContent() {
+  while (menu.widgets.length > menuContentStart) {
+    var wd = menu.widgets.pop()
+    try { deleteWidget(wd) } catch (e) {}
+  }
+  var y = CONTENT_Y
+  if (menu.page === 0) {
+    // 页1：三联开关 + 表冠灵敏度 + 自动翻页
+    menuToggleChips(y)
+    // 表冠行
+    var g = menuRowGeo(y + MPITCH, CROWN_H)
+    mAdd(createWidget(widget.FILL_RECT, { x: g.x, y: y + MPITCH, w: g.w, h: CROWN_H, radius: Math.round(CROWN_H / 2), color: C.card }))
+    mAdd(createWidget(widget.TEXT, { x: g.x + M.padX, y: y + MPITCH, w: 80, h: CROWN_H, text: getText('readerCrown'), text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
+    var crownStepVal = 3
+    try {
+      var cv = parseInt(localStorage.getItem('crown_level') || '', 10)
+      if (cv >= 1 && cv <= 5) crownStepVal = cv
+      else {
+        var co = parseInt(localStorage.getItem('crown_step') || '', 10)
+        if (co >= 1 && co <= 3) crownStepVal = co
+      }
+    } catch (e) {}
+    var crownValText = mAdd(createWidget(widget.TEXT, { x: g.x + g.w - M.padX - 28, y: y + MPITCH, w: 28, h: CROWN_H, text: String(crownStepVal), text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
+    var slX = g.x + M.padX + 88
+    var slW = (g.x + g.w - M.padX - 38) - slX
+    makeSlider(UIDEPS, mAdd, slX, y + MPITCH + Math.round((CROWN_H - M.sliderKnob) / 2), slW, 1, 5, crownStepVal,
+      function (v) { try { crownValText.setProperty(prop.TEXT, String(v)) } catch (e) {} },
+      function (v) { try { localStorage.setItem('crown_level', String(v)) } catch (e) {} }
+    )
+    menu.autoBtnTxt = menuRow(y + MPITCH * 2, getText('readerAuto'), 'value', { text: function () { return getText(AUTO_LABELS[autoIdx]) }, onClick: function () { changeAuto(1) } })
+  } else {
+    // 页2：导航（书签 / 跳页 / 样式）
+    menuRow(y, getText('readerBookmarks'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openBookmarks() } })
+    menuRow(y + MPITCH, getText('readerJump'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openJumpPanel() } })
+    menuRow(y + MPITCH * 2, getText('readerStyle'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openStylePage() } })
+  }
+}
+
+function menuSetPage(p) {
+  if (p < 0 || p > 1 || p === menu.page) return
+  menu.page = p
+  // 删除旧内容与旧页点（menuContentStart 之后全部），再重建新页内容 + 页点
+  while (menu.widgets.length > menuContentStart) {
+    var wd = menu.widgets.pop()
+    try { deleteWidget(wd) } catch (e) {}
+  }
+  menuBuildContent()
+  menuPageDots()
 }
 
 function openMenu() {
@@ -1159,6 +1227,7 @@ function openMenu() {
   menu.active = true
 
   menu.widgets = []
+  menu.page = 0
 
   mAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: C.bg }))
   var closeBg = mAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 0 }))
@@ -1168,51 +1237,21 @@ function openMenu() {
   menuProgressRing()
 
   // 头部：大号百分比作为视觉锚点，页码/时间做次要行
-  mAdd(createWidget(widget.TEXT, { x: 90, y: 28, w: W - 180, h: 34, text: percent() + '%', text_size: 30, color: C.accent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  mAdd(createWidget(widget.TEXT, { x: 60, y: 60, w: W - 120, h: 16, text: displayPage() + ' / ~' + estTotal + '   ' + nowHHMM(), text_size: M.tsMeta, color: C.sub, align_h: align.CENTER_H }))
-  menu.timerText = mAdd(createWidget(widget.TEXT, { x: 60, y: 74, w: W - 120, h: 14, text: getText('readerSessionTime') + fmtMin(currentReadSec() - baseReadSec) + ' · ' + getText('readerTotalTime') + fmtMin(currentReadSec()), text_size: M.tsMeta, color: C.muted, align_h: align.CENTER_H }))
+  mAdd(createWidget(widget.TEXT, { x: 90, y: 26, w: W - 180, h: 36, text: percent() + '%', text_size: 32, color: C.accent, align_h: align.CENTER_H, align_v: align.CENTER_V }))
+  mAdd(createWidget(widget.TEXT, { x: 60, y: 62, w: W - 120, h: 18, text: displayPage() + ' / ~' + estTotal + '   ' + nowHHMM(), text_size: M.tsMeta, color: C.sub, align_h: align.CENTER_H }))
+  menu.timerText = mAdd(createWidget(widget.TEXT, { x: 60, y: 80, w: W - 120, h: 16, text: getText('readerSessionTime') + fmtMin(currentReadSec() - baseReadSec) + ' · ' + getText('readerTotalTime') + fmtMin(currentReadSec()), text_size: M.tsMeta, color: C.muted, align_h: align.CENTER_H }))
 
-  // 关闭按钮：底部居中圆钮（共用组件）
-  makeCloseButton(UIDEPS, mAdd, H - 46, function () { closeMenu() }, W)
+  menuContentStart = menu.widgets.length
+  menuBuildContent()
 
-  // 行 0：三联开关 chip
-  var y0 = 92
-  menuToggleChips(y0)
+  // 页指示点（在内容区与关闭钮之间）
+  menuPageDots()
 
-  // 行 1：表冠灵敏度（label + 自绘滑条 + 值），单独一颗高胶囊
-  var yCrown = y0 + MPITCH
-  var crownH = 44
-  var gc = menuRowGeo(yCrown, crownH)
-  mAdd(createWidget(widget.FILL_RECT, { x: gc.x, y: yCrown, w: gc.w, h: crownH, radius: Math.round(crownH / 2), color: C.card }))
-  mAdd(createWidget(widget.TEXT, { x: gc.x + M.padX, y: yCrown, w: 70, h: crownH, text: getText('readerCrown'), text_size: M.tsRow, color: C.text, align_v: align.CENTER_V }))
-  var crownStepVal = 3
-  try {
-    var cv = parseInt(localStorage.getItem('crown_level') || '', 10)
-    if (cv >= 1 && cv <= 5) crownStepVal = cv
-    else {
-      var co = parseInt(localStorage.getItem('crown_step') || '', 10)
-      if (co >= 1 && co <= 3) crownStepVal = co
-    }
-  } catch (e) {}
-  var crownValText = mAdd(createWidget(widget.TEXT, { x: gc.x + gc.w - M.padX - 24, y: yCrown, w: 24, h: crownH, text: String(crownStepVal), text_size: M.tsVal, color: C.accent, align_h: align.RIGHT, align_v: align.CENTER_V }))
-  var slX = gc.x + M.padX + 80
-  var slW = (gc.x + gc.w - M.padX - 32) - slX
-  // onChange 实时更新显示；onCommit（松手）才写存储，避免拖动时高频落盘
-  makeSlider(UIDEPS, mAdd, slX, yCrown + Math.round((crownH - M.sliderKnob) / 2), slW, 1, 5, crownStepVal,
-    function (v) { try { crownValText.setProperty(prop.TEXT, String(v)) } catch (e) {} },
-    function (v) { try { localStorage.setItem('crown_level', String(v)) } catch (e) {} }
-  )
-
-  // 行 2~5：自动翻页（值）/ 书签 / 跳页 / 样式（导航）
-  var yA = yCrown + 52
-  menu.autoBtnTxt = menuRow(yA, getText('readerAuto'), 'value', { text: function () { return getText(AUTO_LABELS[autoIdx]) }, onClick: function () { changeAuto(1) } })
-  menuRow(yA + MPITCH, getText('readerBookmarks'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openBookmarks() } })
-  menuRow(yA + MPITCH * 2, getText('readerJump'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openJumpPanel() } })
-  menuRow(yA + MPITCH * 3, getText('readerStyle'), 'nav', { onClick: function () { _backToMenu = true; closeMenu(); openStylePage() } })
+  // 关闭按钮：底部居中大圆钮（共用组件，直径 44）
+  makeCloseButton(UIDEPS, mAdd, H - 52, function () { closeMenu() }, W)
 
   menu._poolBuilt = false
 }
-
 // 表冠灵敏度：菜单滑动条写入 crown_level（1~5 级），返回每页累计角度阈值。
 // 兼容旧版 crown_step（1~3）直接映射为 1~3 级。默认 3 级 = 60°。
 function effectiveCrownStep() {
@@ -1291,8 +1330,7 @@ function openJumpPanel() {
   jump.mode = 'page'
   jump.widgets = []
 
-  // 整屏键盘：旧的 220 宽小面板里键只有 56×40，手指按不准。
-  // 现在按 3 列 × 4 行、键 68×52 排布，全部落在圆屏安全区内。
+  // 整屏键盘：3 列 × 4 行、键 76×60（M.keyW/keyH，大点击区），全部落在圆屏安全区内。
   jAdd(createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: C.bg }))
 
   // 顶部：模式标签（可点切换）+ 大号输入值 + 右上关闭
@@ -1321,17 +1359,13 @@ function openJumpPanel() {
     paintMode()
   })
 
-  // 关闭：键盘下方居中圆钮（圆屏右上角很难点准，且 × 挤在边缘不好看）
-  var jcd = 34, jcx = Math.round((W - jcd) / 2), jcy = 382
-  jAdd(createWidget(widget.FILL_RECT, { x: jcx, y: jcy, w: jcd, h: jcd, radius: 17, color: C.cardAlt }))
-  jAdd(createWidget(widget.TEXT, { x: jcx, y: jcy, w: jcd, h: jcd, text: '×', text_size: 20, color: C.sub, align_h: align.CENTER_H, align_v: align.CENTER_V }))
-  var closeBtn = jAdd(createWidget(widget.FILL_RECT, { x: jcx - 16, y: jcy - 8, w: jcd + 32, h: jcd + 16, radius: 25, color: 0x000000, alpha: 0 }))
-  closeBtn.addEventListener(event.CLICK_DOWN, closeJumpPanel)
+  // 关闭：键盘下方居中大圆钮（共用组件，直径 44）
+  makeCloseButton(UIDEPS, jAdd, H - 58, closeJumpPanel, W)
 
-  // 键盘：3×4，键 68×52，gap 10；整体居中（136 → 374，全在圆屏内）
-  var kW = 68, kH = 52, kGap = 10
+  // 键盘：3×4，键 76×60，gap 8；整体居中（126 → 384，全在圆屏内）
+  var kW = M.keyW, kH = M.keyH, kGap = M.keyGap
   var gridW = 3 * kW + 2 * kGap
-  var gx = Math.round((W - gridW) / 2), gy = 132
+  var gx = Math.round((W - gridW) / 2), gy = 126
   // ⌫ 字形在手表字体里是方框，退格键用 DEL 文本
   var btns = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['DEL', '0', 'OK']]
   for (var row = 0; row < 4; row++) {
@@ -1342,12 +1376,12 @@ function openJumpPanel() {
       var isOK = label === 'OK', isDel = label === 'DEL'
       var bgCol = isOK ? C.accent : (isDel ? C.dangerBg : C.cardAlt)
       var fgCol = isOK ? C.onAccent : (isDel ? C.danger : C.text)
-      jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 18, color: bgCol }))
+      jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 20, color: bgCol }))
       jAdd(createWidget(widget.TEXT, {
-        x: bx, y: by, w: kW, h: kH, text: label, text_size: isOK ? 17 : (isDel ? 15 : 22), color: fgCol,
+        x: bx, y: by, w: kW, h: kH, text: label, text_size: isOK ? 19 : (isDel ? 17 : 24), color: fgCol,
         align_h: align.CENTER_H, align_v: align.CENTER_V
       }))
-      var touch = jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 18, color: 0x000000, alpha: 0 }))
+      var touch = jAdd(createWidget(widget.FILL_RECT, { x: bx, y: by, w: kW, h: kH, radius: 20, color: 0x000000, alpha: 0 }))
       if (isOK) touch.addEventListener(event.CLICK_DOWN, jumpConfirm)
       else if (isDel) touch.addEventListener(event.CLICK_DOWN, function () { jumpBackspace() })
       else touch.addEventListener(event.CLICK_DOWN, (function (d) { return function () { addJumpDigit(d) } })(label))

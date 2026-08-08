@@ -9,7 +9,7 @@ import { localStorage } from '@zos/storage'
 import { rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { getText } from '@zos/i18n'
-import { C, M, rowW, btnFlash, makeCloseButton } from '../utils/ui'
+import { C, M, rowW, btnFlash, makeCloseButton, setScale } from '../utils/ui'
 
 var W = 480
 var S = 1
@@ -32,6 +32,7 @@ function sp(v) { return Math.round(v * S) }
 function computeShelfLayout() {
   try { var di = getDeviceInfo(); if (di && di.width) W = di.width } catch (e) {}
   S = W / 480
+  setScale(W)
 }
 
 // --LIBRARY-DATA-- (内置书数据，手动维护；如需批量导入可写脚本替换此段)
@@ -185,7 +186,7 @@ function toggleLaunchCalc() {
 function renderLaunchButton() {
   clearLaunch()
   var enabled = launchCalcEnabled()
-  var w = sp(184), h = sp(30), x = Math.round((W - w) / 2), y = sp(412)
+  var w = sp(200), h = sp(36), x = Math.round((W - w) / 2), y = sp(408)
   launchWidgets.push(createWidget(widget.FILL_RECT, { x: x, y: y, w: w, h: h, radius: Math.round(h / 2), color: enabled ? COL_PANEL_SOFT : COL_PANEL }))
   launchWidgets.push(createWidget(widget.TEXT, { x: x, y: y, w: w, h: h, text: getText('shelfLaunchCalc') + '：' + (enabled ? getText('shelfOn') : getText('shelfOff')), text_size: sp(M.tsMeta), color: enabled ? COL_ACCENT_SOFT : COL_SUB, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var t = createWidget(widget.FILL_RECT, { x: x - sp(6), y: y - sp(5), w: w + sp(12), h: h + sp(10), radius: Math.round(h / 2) + sp(4), color: 0x000000, alpha: 0 })
@@ -375,7 +376,7 @@ function drawTile(book, y) {
   var open = addShelfWidget(createWidget(widget.FILL_RECT, { x: x, y: y, w: w - delW, h: CARD_H, radius: r, color: 0x000000, alpha: 0 }))
   bindCard(open, book)
   // 删除 chip：右侧居中圆钮，视觉 28 / 热区 40×CARD_H
-  var chip = sp(28), chipX = x + w - sp(14) - chip, chipY = y + Math.round((CARD_H - chip) / 2)
+  var chip = sp(M.delD), chipX = x + w - sp(M.delD / 2) - chip, chipY = y + Math.round((CARD_H - chip) / 2)
   addShelfWidget(createWidget(widget.FILL_RECT, { x: chipX, y: chipY, w: chip, h: chip, radius: Math.round(chip / 2), color: COL_DANGER_BG }))
   addShelfWidget(createWidget(widget.TEXT, { x: chipX, y: chipY, w: chip, h: chip, text: '×', text_size: sp(15), color: COL_DANGER, align_h: align.CENTER_H, align_v: align.CENTER_V }))
   var del = addShelfWidget(createWidget(widget.FILL_RECT, { x: x + w - delW, y: y, w: delW, h: CARD_H, radius: r, color: 0x000000, alpha: 0 }))
@@ -384,7 +385,7 @@ function drawTile(book, y) {
 
 // 翻页控件：左右胶囊 + 中间页码，位于书卡下方 y=340（不与卡片重叠）
 function drawNav(totalPages) {
-  var y = sp(336), bh = sp(34), bw = sp(58)
+  var y = sp(330), bh = sp(44), bw = sp(68)
   addShelfWidget(createWidget(widget.TEXT, {
     x: sp(200), y: y, w: sp(80), h: bh, text: (shelfPage + 1) + '/' + totalPages,
     text_size: sp(M.tsMeta), color: COL_MUTED, align_h: align.CENTER_H, align_v: align.CENTER_V
@@ -607,9 +608,9 @@ function showPwdPanel() {
   var BDEPS = { createWidget: createWidget, widget: widget, event: event }
   makeCloseButton(BDEPS, function (w) { pwdWidgets.push(w) }, 382, function () { clearPwd() }, W)
 
-  // 与跳页键盘同一规格：键 68×52 / gap 10，全部落在圆屏安全区内
-  var bw = 68, bh = 52, gp = 10
-  var gx = Math.round((W - (3 * bw + 2 * gp)) / 2), gy = 132
+  // 与跳页键盘同一规格：键 76×60 / gap 8（M.keyW/keyH/keyGap），大点击区
+  var bw = M.keyW, bh = M.keyH, gp = M.keyGap
+  var gx = Math.round((W - (3 * bw + 2 * gp)) / 2), gy = 126
   var keys = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['DEL', '0', 'OK']]
   for (var r = 0; r < 4; r++) {
     for (var c = 0; c < 3; c++) {
@@ -867,7 +868,7 @@ Page({
     // 标题下方强调下划线（签名元素，统一圆形屏视觉语言）
     createWidget(widget.FILL_RECT, { x: sp(224), y: sp(42), w: sp(32), h: sp(3), radius: sp(2), color: COL_ACCENT })
     // 顶部三个功能钮：改密 / 统计 / 关于
-    var _bw = sp(84), _bh = sp(32), _by = sp(60)
+    var _bw = sp(92), _bh = sp(M.chipH), _by = sp(58)
     var _bgap = sp(12)
     var _bx0 = Math.round((W - (3 * _bw + 2 * _bgap)) / 2)
     var _labels = [
