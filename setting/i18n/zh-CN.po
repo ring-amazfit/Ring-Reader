@@ -1,0 +1,68 @@
+msgid "settingAppName"
+msgstr "环间阅读器"
+
+msgid "settingAppSub"
+msgstr "伪装计算器 · 手表上看小说"
+
+msgid "settingBookTitle"
+msgstr "📕 书名"
+
+msgid "settingBookPlaceholder"
+msgstr "例如：三体"
+
+msgid "settingBookHint"
+msgstr "小说名称，必填"
+
+msgid "settingUrlLabel"
+msgstr "🔗 TXT 下载直链"
+
+msgid "settingUrlPlaceholder"
+msgstr "https://.../book.txt"
+
+msgid "settingUrlHint"
+msgstr "直链需为可直接下载的链接，UTF-8 编码"
+
+msgid "settingPasteBtn"
+msgstr "📋 从剪贴板粘贴"
+
+msgid "settingClipboardNotFound"
+msgstr "未检测到剪贴板中的直链，请手动粘贴"
+
+msgid "settingUploadBtn"
+msgstr "🚀 开始上传到手表"
+
+msgid "settingErrNoTitleOrUrl"
+msgstr "请填写书名和直链"
+
+msgid "settingErrUrlScheme"
+msgstr "直链需以 http:// 或 https:// 开头"
+
+msgid "settingTaskSubmitted"
+msgstr "任务已提交，等待手机服务响应"
+
+msgid "settingProgressLabel"
+msgstr "进度 "
+
+msgid "settingClearBtn"
+msgstr "清除状态"
+
+msgid "settingTutorialTitle"
+msgstr "📖 使用教程"
+
+msgid "settingTutorialStep"
+msgstr "① 填书名+直链 → ② 点上传 → ③ 保持App前台 → ④ 手表留在书架页等待接收"
+
+msgid "settingTutorialUtf8"
+msgstr "• 仅支持 UTF-8 编码的 .txt 文件"
+
+msgid "settingTutorialWatch"
+msgstr "• 手表端：计算器 → 123456按= → 书架等接收"
+
+msgid "settingFooter"
+msgstr "环间阅读器 · v3.2.0 · 石墨 / 琥珀"
+
+msgid "settingWaiting"
+msgstr "等待上传"
+
+msgid "settingFailed"
+msgstr "失败"
